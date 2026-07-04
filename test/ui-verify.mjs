@@ -111,10 +111,19 @@ try {
     const zoomed = await scaleOf();
     ok(zoomed > 1.1, `휠로 확대됨 (scale=${zoomed.toFixed(2)})`);
     ok(await page.locator('.stage.zoomed').count() === 1, '확대 상태 클래스 적용');
-    await page.click('.zoom-bar button:last-child');    // 맞춤(⤢) 버튼
+    await page.click('.zoom-bar .zlabel');              // %(숫자) 클릭 = 화면맞춤
     await sleep(120);
     const back = await scaleOf();
-    ok(Math.abs(back - 1) < 0.01, `맞춤 버튼으로 원상복구(100%) [got ${back}]`);
+    ok(Math.abs(back - 1) < 0.01, `퍼센트 클릭으로 화면맞춤(100%) [got ${back}]`);
+
+    // 전체화면 버튼(⤢): 폴백(pseudo) 경로 강제해 토글 검증
+    await page.evaluate(() => { document.querySelector('.stage').requestFullscreen = undefined; });
+    await page.click('.zoom-bar button:last-child');    // ⤢ 전체화면
+    await sleep(80);
+    ok(await page.locator('.stage.is-fs').count() === 1, '전체화면 진입(스테이지 확장)');
+    await page.click('.zoom-bar button:last-child');    // 다시 눌러 종료
+    await sleep(80);
+    ok(await page.locator('.stage.is-fs').count() === 0, '전체화면 종료');
   }
 
   /* 2) 키보드 평점 */

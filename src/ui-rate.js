@@ -9,12 +9,13 @@ const MAX_ZOOM = 8;
 export function renderRate(root) {
   const img   = el('img', { class: 'photo', alt: '' });
   const empty = el('div', { class: 'empty' }, '표시할 사진이 없어요. (필터를 확인해 주세요)');
-  const zlabel = el('span', { class: 'zlabel' }, '100%');
+  const zlabel = el('button', { class: 'zlabel', title: '화면맞춤 (f)', onclick: () => resetZoom() }, '100%');
+  const fsBtn = el('button', { class: 'zbtn', title: '전체화면', onclick: () => toggleFullscreen() }, '⤢');
   const zoomBar = el('div', { class: 'zoom-bar' },
     el('button', { class: 'zbtn', title: '축소 (-)', onclick: () => zoomAt(1 / 1.4, cx(), cy()) }, '−'),
     zlabel,
     el('button', { class: 'zbtn', title: '확대 (+)', onclick: () => zoomAt(1.4, cx(), cy()) }, '+'),
-    el('button', { class: 'zbtn', title: '화면맞춤 (f)', onclick: resetZoom }, '⤢'),
+    fsBtn,
   );
   const stage = el('div', { class: 'stage' }, img, zoomBar);
   // 하단은 사진을 가리지 않게 얇은 한 줄 바(평점·이동은 주로 단축키 1~5 / ←→ 사용)
@@ -48,6 +49,27 @@ export function renderRate(root) {
     zlabel.textContent = Math.round(scale * 100) + '%';
   }
   function resetZoom() { scale = 1; tx = 0; ty = 0; apply(); }
+
+  /* ---------- 전체화면 ---------- */
+  let pseudoFs = false;
+  const isFs = () => !!document.fullscreenElement || pseudoFs;
+  function syncFs() {
+    stage.classList.toggle('is-fs', isFs());
+    stage.classList.toggle('pseudo-fs', pseudoFs && !document.fullscreenElement);
+    fsBtn.textContent = isFs() ? '⤡' : '⤢';
+    fsBtn.title = isFs() ? '전체화면 종료' : '전체화면';
+    apply();                                   // 화면 크기 바뀌었으니 재클램프
+  }
+  function toggleFullscreen() {
+    if (stage.requestFullscreen) {             // 표준 Fullscreen API (데스크톱/아이패드)
+      if (document.fullscreenElement) document.exitFullscreen();
+      else stage.requestFullscreen().catch(() => { pseudoFs = true; syncFs(); });
+    } else {                                   // 아이폰 등 미지원 → CSS 유사 전체화면
+      pseudoFs = !pseudoFs; syncFs();
+    }
+  }
+  const onFsChange = () => { if (!document.fullscreenElement) pseudoFs = false; syncFs(); };
+  document.addEventListener('fullscreenchange', onFsChange);
   function zoomAt(factor, clientX, clientY) {
     const r = stage.getBoundingClientRect();
     const mX = clientX - (r.left + r.width / 2);      // 커서 위치(스테이지 중심 기준)
@@ -162,5 +184,12 @@ export function renderRate(root) {
   document.addEventListener('keydown', onKey);
 
   update();
-  return { update, dispose() { document.removeEventListener('keydown', onKey); } };
+  return {
+    update,
+    dispose() {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('fullscreenchange', onFsChange);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    },
+  };
 }

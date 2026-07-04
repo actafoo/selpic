@@ -117,7 +117,15 @@ input, select { font: inherit; }
   width: 26px; height: 26px; border: none; border-radius: 7px;
   background: var(--panel-2); color: var(--text); font-size: 16px; line-height: 1;
 }
-.zlabel { min-width: 44px; text-align: center; color: #fff; font-size: 12px; }
+.zlabel {
+  min-width: 44px; text-align: center; color: #fff; font-size: 12px;
+  background: none; border: none; padding: 2px 4px; cursor: pointer; border-radius: 6px;
+}
+.zlabel:hover { background: rgba(255,255,255,.12); }
+/* 전체화면 폴백(아이폰 등 Fullscreen API 미지원): 스테이지를 화면 전체로 */
+.stage.pseudo-fs { position: fixed; inset: 0; z-index: 9999; padding: 8px; }
+.stage:fullscreen { padding: 8px; }
+.stage:-webkit-full-screen { padding: 8px; }
 /* 얇은 한 줄 바: [◀] n/m  파일명  ★별점  점수  [▶] */
 .rate-bar {
   display: flex; align-items: center; gap: 14px;
