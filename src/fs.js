@@ -50,6 +50,19 @@ export function useFileList(files) {
   for (const f of files) if (IMG_RE.test(f.name)) fileMap.set(norm(f.name), f);
   finalize();
 }
+
+// ----- 사진 추가(기존 선택에 덧붙이기) -----
+export function addFiles(files) {                 // 다중 파일 선택으로 추가
+  for (const f of files) if (IMG_RE.test(f.name)) fileMap.set(norm(f.name), f);
+  finalize();
+}
+export async function addFolder() {               // 폴더로 추가(데스크톱)
+  const h = await window.showDirectoryPicker({ id: 'selpic-add', mode: 'read' });
+  for await (const entry of h.values()) {
+    if (entry.kind === 'file' && IMG_RE.test(entry.name)) fileMap.set(norm(entry.name), entry);
+  }
+  finalize();
+}
 export async function hasSavedFolder() {
   if (!window.showDirectoryPicker) return false;
   try { return !!(await idbGet('dir')); } catch { return false; }

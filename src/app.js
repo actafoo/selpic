@@ -94,6 +94,8 @@ function enterApp() {
   $('#sortToggle').onchange = (e) => { state.filter.sortByTotal = e.target.checked; emit(); rerender(); };
   $('#exportBtn').onclick   = exportSelection;
   $('#syncBtn').onclick     = async () => { status('동기화 중…'); await flush(); await pollNow(); status('동기화 완료'); };
+  $('#addBtn').onclick      = addPhotos;
+  $('#addFiles').onchange   = (e) => { if (e.target.files?.length) { fs.addFiles(e.target.files); afterAdd(); } };
 
   document.addEventListener('selpic:open', (e) => { state.current = e.detail.name; switchView('rate'); });
   document.addEventListener('selpic:view', (e) => switchView(e.detail.view));
@@ -104,6 +106,14 @@ function enterApp() {
   startSync();
   switchView('rate');
 }
+
+async function addPhotos() {
+  try {
+    if (window.showDirectoryPicker) { await fs.addFolder(); afterAdd(); }  // 데스크톱: 폴더로 추가
+    else { $('#addFiles').click(); }                                       // 아이폰/폴백: 다중 파일(onchange에서 처리)
+  } catch (e) { if (e?.name !== 'AbortError') console.warn(e); }
+}
+function afterAdd() { emit(); rerender(); status(`사진 ${state.files.length}장`); }
 
 function switchView(v) {
   state.view = v;

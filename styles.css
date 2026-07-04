@@ -84,7 +84,7 @@ input, select { font: inherit; }
   padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--panel-2); color: var(--text);
 }
-#syncBtn { padding: 7px 11px; border-radius: 8px; border: 1px solid var(--line);
+#syncBtn, #addBtn { padding: 7px 11px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--panel-2); color: var(--text); }
 #main { flex: 1; overflow: auto; position: relative; }
 .statusbar { height: 24px; padding: 2px 16px; background: var(--panel);
@@ -197,17 +197,18 @@ input, select { font: inherit; }
 
 /* ===== 모바일(좁은 화면) 반응형 ===== */
 @media (max-width: 640px) {
-  /* 상단바: 세 줄로 자연스럽게 줄바꿈, 터치하기 좋은 크기 */
-  .topbar { gap: 8px; padding: 8px 10px; }
+  /* 상단바: 컴팩트하게 (사진 공간 확보) */
+  .topbar { gap: 5px; padding: 5px 8px; }
   .tb-left { width: 100%; justify-content: space-between; }
-  .tb-views { margin-left: 0; width: 100%; }
-  .tb-views .view-btn { flex: 1; padding: 11px 6px; }
-  .tb-filters { width: 100%; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
-  .tb-filters .f { flex: 0 0 auto; white-space: nowrap; }
-  .tb-filters select { padding: 10px 8px; }
-  .tb-filters > select { flex: 1 1 40%; min-width: 0; }   /* 모두 필터만 늘어남 */
-  #exportBtn { flex: 1 1 100%; min-height: 42px; }
-  #syncBtn { min-height: 42px; padding: 9px 14px; }
+  .role-badge { font-size: 14px; }
+  .progress { font-size: 12px; }
+  .tb-views { margin-left: 0; width: 100%; gap: 5px; }
+  .tb-views .view-btn { flex: 1; padding: 6px 4px; font-size: 13px; }
+  .tb-filters { width: 100%; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .tb-filters .f { flex: 0 0 auto; white-space: nowrap; font-size: 12px; }
+  .tb-filters select { padding: 5px 6px; font-size: 13px; }
+  .tb-filters > select { flex: 1 1 30%; min-width: 0; }   /* '모두' 필터만 늘어남 */
+  #exportBtn, #addBtn, #syncBtn { padding: 6px 9px; font-size: 13px; min-height: 0; }
 
   /* 그리드: 2열, 파일명은 살짝 크게 */
   .grid { grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 8px; }

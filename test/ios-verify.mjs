@@ -15,6 +15,7 @@ const TINY_JPEG = Buffer.from(
 const imgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'selpic-ios-'));
 const NAMES = ['IMG_001.jpg', 'IMG_002.jpg', 'IMG_003.jpg'];
 const paths = NAMES.map(n => { const p = path.join(imgDir, n); fs.writeFileSync(p, TINY_JPEG); return p; });
+const EXTRA = ['IMG_004.jpg', 'IMG_005.jpg'].map(n => { const p = path.join(imgDir, n); fs.writeFileSync(p, TINY_JPEG); return p; });
 
 const sheet = new Map();
 const mock = http.createServer((req, res) => {
@@ -101,8 +102,14 @@ try {
   await page.waitForTimeout(500);
   ok(sheet.get('IMG_001.jpg')?.bride === 4, '아이폰에서 평점 → 시트 반영');
 
+  // 사진 추가(덧붙이기): 2장 더 → 총 5장, 기존 평점 유지
+  await page.setInputFiles('#addFiles', EXTRA);
+  await sleep(250);
+  ok((await page.textContent('#progress')).includes('/ 5'), '사진 추가 → 총 5장');
+
   await page.click('.view-btn[data-view="grid"]');
   await page.waitForSelector('.grid .cell');
+  ok(await page.locator('.grid .cell').count() === 5, '그리드 5장(추가 반영)');
   ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), '그리드도 가로 오버플로 없음');
   await page.screenshot({ path: path.join(ROOT, 'test', 'screenshot-mobile-grid.png') });
 
