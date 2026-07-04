@@ -131,8 +131,9 @@ input, select { font: inherit; }
   display: flex; align-items: center; gap: 14px;
   padding: 6px 12px; background: var(--panel); border-top: 1px solid var(--line);
 }
+.rate-mid { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; }
 .rate-bar .rate-center { min-width: 60px; text-align: center; color: var(--muted); font-size: 12px; }
-.rate-info { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.rate-info { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .fname { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; max-width: 320px; }
 .scores { display: flex; gap: 12px; color: var(--muted); font-size: 13px; }
@@ -213,13 +214,13 @@ input, select { font: inherit; }
   .cell-name { font-size: 11px; }
   .cmp-add, .cell-badges span { font-size: 12px; }
 
-  /* 1장 하단 바: 파일명 숨겨 공간 확보, 별점·버튼 크게(터치) */
-  .rate-bar { flex-wrap: wrap; justify-content: center; gap: 8px 12px; padding: 7px 8px; }
-  .rate-info { flex: 1 1 100%; justify-content: center; gap: 14px; order: 2; }
+  /* 1장 하단 바: 이전/다음은 양쪽 끝(엄지 코너)에 크게, 별점은 가운데 크게 */
+  .rate-bar { gap: 6px; padding: 8px 6px; }
+  .rate-mid { flex-direction: column; gap: 5px; }
+  .rate-bar .rate-center { font-size: 11px; }
   .fname { display: none; }
-  .stars.md .star { font-size: 30px; padding: 3px 5px; }
-  .navbtn.sm { padding: 9px 18px; font-size: 15px; }
-  .rate-bar .rate-center { order: 1; }
+  .stars.md .star { font-size: 32px; padding: 4px 6px; }
+  .navbtn.sm { padding: 14px 16px; font-size: 20px; align-self: stretch; display: flex; align-items: center; }
 
   /* 비교: 2열 + 세로 스크롤 */
   .compare { height: auto; grid-template-columns: 1fr 1fr; }

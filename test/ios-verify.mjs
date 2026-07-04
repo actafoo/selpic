@@ -39,6 +39,7 @@ const APP_URL = `http://localhost:${srv.address().port}/`;
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log(`  ✓ ${m}`); } else { fail++; console.log(`  ✗ ${m}`); } };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({
@@ -71,6 +72,28 @@ try {
   ok(await page.locator('#exportBtn').isVisible(), '내보내기 버튼 보임');
   ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), '가로 오버플로 없음');
   await page.screenshot({ path: path.join(ROOT, 'test', 'screenshot-mobile-rate.png') });
+
+  // 이전/다음 버튼이 양쪽 끝(엄지 코너)에 있는지
+  const vw = page.viewportSize().width;
+  const prevBox = await page.locator('.rate-bar .navbtn').first().boundingBox();
+  const nextBox = await page.locator('.rate-bar .navbtn').last().boundingBox();
+  ok(prevBox.x < vw * 0.22, '이전 버튼이 왼쪽 끝');
+  ok(nextBox.x + nextBox.width > vw * 0.78, '다음 버튼이 오른쪽 끝');
+
+  // 스와이프로 넘기기(터치): 왼쪽으로 밀면 다음, 오른쪽으로 밀면 이전
+  const swipe = (fromFrac, toFrac) => page.evaluate(([f, t]) => {
+    const st = document.querySelector('.stage'); const r = st.getBoundingClientRect();
+    const y = r.top + r.height / 2, sx = r.left + r.width * f, ex = r.left + r.width * t;
+    const ev = (type, x) => st.dispatchEvent(new PointerEvent(type, { pointerId: 1, pointerType: 'touch', clientX: x, clientY: y, button: 0, bubbles: true }));
+    ev('pointerdown', sx); ev('pointermove', (sx + ex) / 2); ev('pointerup', ex);
+  }, [fromFrac, toFrac]);
+  const counter = () => page.locator('.rate-bar .rate-center').textContent();
+  const c0 = await counter();
+  await swipe(0.75, 0.25); await sleep(120);           // 왼쪽으로 스와이프 = 다음
+  const c1 = await counter();
+  ok(c0.startsWith('1') && c1.startsWith('2'), `스와이프로 다음 (${c0} → ${c1})`);
+  await swipe(0.25, 0.75); await sleep(120);           // 오른쪽으로 스와이프 = 이전
+  ok((await counter()).startsWith('1'), '스와이프로 이전 복귀');
 
   await page.evaluate(() => document.activeElement && document.activeElement.blur());
   await page.keyboard.press('4');
