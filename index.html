@@ -59,6 +59,36 @@
     </nav>
 
     <div class="tb-filters">
+      <label class="f">내
+        <select id="mineSel">
+          <option value="all">전체</option>
+          <option value="5">5점</option>
+          <option value="4">4점</option>
+          <option value="3">3점</option>
+          <option value="2">2점</option>
+          <option value="1">1점</option>
+          <option value="ge4">4점↑</option>
+          <option value="ge3">3점↑</option>
+          <option value="ge2">2점↑</option>
+          <option value="rated">매긴것</option>
+          <option value="unrated">미평가</option>
+        </select>
+      </label>
+      <label class="f"><span id="otherLabel">상대</span>
+        <select id="otherSel">
+          <option value="all">전체</option>
+          <option value="5">5점</option>
+          <option value="4">4점</option>
+          <option value="3">3점</option>
+          <option value="2">2점</option>
+          <option value="1">1점</option>
+          <option value="ge4">4점↑</option>
+          <option value="ge3">3점↑</option>
+          <option value="ge2">2점↑</option>
+          <option value="rated">매긴것</option>
+          <option value="unrated">미평가</option>
+        </select>
+      </label>
       <label class="f">합계≥
         <select id="minTotal">
           <option value="0">전체</option>
@@ -69,11 +99,6 @@
           <option value="10">10</option>
         </select>
       </label>
-      <select id="modeSel" title="필터">
-        <option value="all">모두</option>
-        <option value="rated-mine">내가 매긴 것</option>
-        <option value="unrated-mine">아직 안 매긴 것</option>
-      </select>
       <label class="f"><input type="checkbox" id="sortToggle"> 합계순</label>
       <input id="addFiles" type="file" accept="image/jpeg,.jpg,.jpeg" multiple hidden>
       <button id="addBtn" class="sm">＋ 사진 추가</button>

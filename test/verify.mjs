@@ -114,11 +114,22 @@ eq([...state.pending].length, 0, 'pull이 pending 재확인·정리');
 
 /* ===== 5) 필터/정렬 ===== */
 console.log('\n[5] 합계 필터·정렬');
-state.filter = { minTotal: 9, mode: 'all', sortByTotal: true };
+state.filter = { minTotal: 9, mine: 'all', other: 'all', sortByTotal: true };
 eq(R.navList(), ['img_1.jpg', 'img_2.jpg'], '합계≥9 필터 + 합계순');
+
+console.log('\n[5b] 점수 필터(내/상대)');
+state.filter = { minTotal: 0, mine: 'all', other: '5', sortByTotal: false };
+eq(R.navList(), ['img_2.jpg', 'img_3.jpg'], '상대(신부) 5점만');
+state.filter = { minTotal: 0, mine: '5', other: 'all', sortByTotal: false };
+eq(R.navList(), ['img_1.jpg'], '내 5점만');
+state.filter = { minTotal: 0, mine: 'all', other: 'ge4', sortByTotal: false };
+eq(R.navList(), ['img_1.jpg', 'img_2.jpg', 'img_3.jpg'], '상대 4점 이상');
+state.filter = { minTotal: 0, mine: 'unrated', other: 'all', sortByTotal: false };
+eq(R.navList(), ['img_3.jpg'], '내 미평가만');
 
 /* ===== 6) 최종 내보내기 ===== */
 console.log('\n[6] 최종 내보내기(txt/csv)');
+state.filter = { minTotal: 9, mine: 'all', other: 'all', sortByTotal: true };
 downloads.length = 0;
 exportSelection();
 eq(downloads[0], 'img_1.jpg\nimg_2.jpg', 'txt = 파일명 리스트');

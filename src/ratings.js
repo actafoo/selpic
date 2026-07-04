@@ -16,7 +16,7 @@ export const state = {
   pending: new Map(),    // key -> score           (아직 시트로 못 보낸 점수)
   current: null,         // 1장 모드에서 보고 있는 키
   view: 'rate',
-  filter: { minTotal: 0, mode: 'all', sortByTotal: false },
+  filter: { minTotal: 0, mine: 'all', other: 'all', sortByTotal: false },  // mine/other: 'all'|'1'~'5'|'ge2'~'ge4'|'rated'|'unrated'
   compare: new Set(),    // 비교에 담은 키(최대 4)
 };
 
@@ -89,12 +89,20 @@ export function toggleCompare(key) {
 }
 
 /* ---------- 필터/정렬 뷰 (키 목록 반환) ---------- */
+// 점수 필터 판정: 'all'=전체, '1'~'5'=정확히, 'ge4'=4점 이상, 'rated'=매김, 'unrated'=미평가
+function matchScore(score, f) {
+  if (!f || f === 'all') return true;
+  if (f === 'rated')   return score >= 1;
+  if (f === 'unrated') return score === 0;
+  if (f[0] === 'g')    return score >= +f.slice(2);
+  return score === +f;
+}
 export function navList() {
   let arr = [...state.files];
-  const { minTotal, mode, sortByTotal } = state.filter;
-  if (mode === 'rated-mine')        arr = arr.filter(k => myScore(k) > 0);
-  else if (mode === 'unrated-mine') arr = arr.filter(k => myScore(k) === 0);
-  if (minTotal > 0)                 arr = arr.filter(k => total(k) >= minTotal);
+  const { minTotal, mine, other, sortByTotal } = state.filter;
+  if (mine  && mine  !== 'all') arr = arr.filter(k => matchScore(myScore(k), mine));      // 내 점수
+  if (other && other !== 'all') arr = arr.filter(k => matchScore(otherScore(k), other));  // 상대 점수
+  if (minTotal > 0)             arr = arr.filter(k => total(k) >= minTotal);               // 합계
   if (sortByTotal) arr = arr.slice().sort((a, b) => total(b) - total(a) || nameOf(a).localeCompare(nameOf(b), undefined, { numeric: true }));
   return arr;
 }

@@ -92,8 +92,10 @@ function enterApp() {
 
   document.querySelectorAll('.view-btn').forEach(b => b.onclick = () => switchView(b.dataset.view));
   $('#minTotal').onchange   = (e) => { state.filter.minTotal = +e.target.value; emit(); rerender(); };
-  $('#modeSel').onchange    = (e) => { state.filter.mode = e.target.value; emit(); rerender(); };
+  $('#mineSel').onchange     = (e) => { state.filter.mine = e.target.value; emit(); rerender(); };
+  $('#otherSel').onchange    = (e) => { state.filter.other = e.target.value; emit(); rerender(); };
   $('#sortToggle').onchange = (e) => { state.filter.sortByTotal = e.target.checked; emit(); rerender(); };
+  $('#otherLabel').textContent = state.role === 'groom' ? '신부' : '신랑';   // 상대 역할 라벨
   $('#exportBtn').onclick   = exportSelection;
   $('#syncBtn').onclick     = async () => { status('동기화 중…'); await flush(); await pollNow(); status('동기화 완료'); };
   $('#addBtn').onclick      = addPhotos;                    // 상단바(모든 화면에서 보임)
