@@ -79,7 +79,7 @@ try {
   /* 1) 접속 */
   console.log('\n[1] 접속 & 폴더 로드');
   await page.click('.role-btn[data-role="groom"]');
-  await page.fill('#urlInput', MOCK_URL);
+  await page.$eval('#urlInput', (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, MOCK_URL);
   await page.setInputFiles('#folderFallback', imgDir);     // 폴백 경로로 폴더 주입(디렉터리)
   await page.waitForSelector('#app:not([hidden])', { timeout: 5000 });
   ok(!(await page.locator('#connect').isVisible()), '접속 화면 숨김(앱만 표시)');

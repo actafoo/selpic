@@ -8,6 +8,7 @@ import { renderGrid } from './ui-grid.js';
 import { renderCompare } from './ui-compare.js';
 import { exportSelection } from './export.js';
 import { clear } from './ui-common.js';
+import { DEFAULT_SHEET_URL } from './config.js';
 
 const $ = (s) => document.querySelector(s);
 let selectedRole = null;
@@ -19,6 +20,12 @@ function initConnect() {
   const savedUrl  = localStorage.getItem('selpic:url');
   if (savedUrl) $('#urlInput').value = savedUrl;
   if (savedRole) selectRole(savedRole);
+
+  // 기본 URL이 설정돼 있으면 입력칸을 숨기고 자동 사용(역할+폴더만 선택)
+  if (DEFAULT_SHEET_URL) {
+    if (!$('#urlInput').value) $('#urlInput').value = DEFAULT_SHEET_URL;
+    $('#urlField').hidden = true;
+  }
 
   document.querySelectorAll('.role-btn').forEach(b => b.onclick = () => selectRole(b.dataset.role));
   $('#urlInput').oninput = validateConnect;

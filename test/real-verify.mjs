@@ -51,7 +51,7 @@ try {
   /* 1) 신랑으로 접속 + 폴더 로드 */
   console.log('\n[1] 접속');
   await page.click('.role-btn[data-role="groom"]');
-  await page.fill('#urlInput', URL);
+  await page.$eval('#urlInput', (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, URL);
   await page.setInputFiles('#folderFallback', imgDir);
   await page.waitForSelector('#app:not([hidden])', { timeout: 8000 });
   ok(true, '앱 진입');

@@ -59,7 +59,7 @@ try {
   ok(await page.locator('#pickHint').isVisible(), 'iOS 안내 문구 노출');
 
   await page.click('.role-btn[data-role="bride"]');
-  await page.fill('#urlInput', MOCK_URL);
+  await page.$eval('#urlInput', (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, MOCK_URL);
   await page.setInputFiles('#filesFallback', paths);     // 아이폰: 사진 여러 장 선택
   await page.waitForSelector('#app:not([hidden])', { timeout: 5000 });
   ok(true, '다중 파일 선택으로 앱 진입');
