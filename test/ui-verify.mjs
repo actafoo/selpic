@@ -146,7 +146,6 @@ try {
   await page.click('.view-btn[data-view="grid"]');
   await page.waitForSelector('.grid .cell');
   eq(await page.locator('.grid .cell[data-name]').count(), 4, '셀 4개');
-  ok(await page.locator('.grid .add-tile').count() === 1, '그리드에 ＋사진 추가 타일');
 
   /* 4) 신랑 점수 시트로 전송 */
   console.log('\n[4] 동기화(push)');

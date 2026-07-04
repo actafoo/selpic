@@ -94,8 +94,8 @@ function enterApp() {
   $('#sortToggle').onchange = (e) => { state.filter.sortByTotal = e.target.checked; emit(); rerender(); };
   $('#exportBtn').onclick   = exportSelection;
   $('#syncBtn').onclick     = async () => { status('동기화 중…'); await flush(); await pollNow(); status('동기화 완료'); };
+  $('#addBtn').onclick      = addPhotos;                    // 상단바(모든 화면에서 보임)
   $('#addFiles').onchange   = (e) => { if (e.target.files?.length) { fs.addFiles(e.target.files); afterAdd(); } };
-  document.addEventListener('selpic:add', addPhotos);       // 그리드의 "＋ 사진 추가" 타일
 
   document.addEventListener('selpic:open', (e) => { state.current = e.detail.name; switchView('rate'); });
   document.addEventListener('selpic:view', (e) => switchView(e.detail.view));

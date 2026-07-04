@@ -71,6 +71,7 @@ try {
   // 모바일 레이아웃(390px): 오버플로 없음 + 주요 버튼 보임
   ok(await page.locator('.view-btn').first().isVisible(), '뷰 버튼 보임');
   ok(await page.locator('#exportBtn').isVisible(), '내보내기 버튼 보임');
+  ok(await page.locator('#addBtn').isVisible(), '1장 화면에서도 ＋사진 추가 버튼 보임');
   ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), '가로 오버플로 없음');
   await page.screenshot({ path: path.join(ROOT, 'test', 'screenshot-mobile-rate.png') });
 
@@ -127,7 +128,6 @@ try {
   await page.click('.view-btn[data-view="grid"]');
   await page.waitForSelector('.grid .cell');
   ok(await page.locator('.grid .cell[data-name]').count() === 5, '그리드 5장(추가 반영)');
-  ok(await page.locator('.grid .add-tile').count() === 1, '그리드에 ＋사진 추가 타일');
   ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), '그리드도 가로 오버플로 없음');
   await page.screenshot({ path: path.join(ROOT, 'test', 'screenshot-mobile-grid.png') });
 
