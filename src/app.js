@@ -94,8 +94,8 @@ function enterApp() {
   $('#sortToggle').onchange = (e) => { state.filter.sortByTotal = e.target.checked; emit(); rerender(); };
   $('#exportBtn').onclick   = exportSelection;
   $('#syncBtn').onclick     = async () => { status('동기화 중…'); await flush(); await pollNow(); status('동기화 완료'); };
-  $('#addBtn').onclick      = addPhotos;
   $('#addFiles').onchange   = (e) => { if (e.target.files?.length) { fs.addFiles(e.target.files); afterAdd(); } };
+  document.addEventListener('selpic:add', addPhotos);       // 그리드의 "＋ 사진 추가" 타일
 
   document.addEventListener('selpic:open', (e) => { state.current = e.detail.name; switchView('rate'); });
   document.addEventListener('selpic:view', (e) => switchView(e.detail.view));
@@ -142,5 +142,9 @@ export function status(t) {
   clearTimeout(statusT);
   statusT = setTimeout(() => { if ($('#statusMsg').textContent === t) $('#statusMsg').textContent = ''; }, 3000);
 }
+
+// 모바일에서 페이지 전체가 핀치로 확대되는 것 방지(사진만 앱 내부에서 확대)
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
 
 initConnect();

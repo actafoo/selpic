@@ -84,7 +84,7 @@ input, select { font: inherit; }
   padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--panel-2); color: var(--text);
 }
-#syncBtn, #addBtn { padding: 7px 11px; border-radius: 8px; border: 1px solid var(--line);
+#syncBtn { padding: 7px 11px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--panel-2); color: var(--text); }
 #main { flex: 1; overflow: auto; position: relative; }
 .statusbar { height: 24px; padding: 2px 16px; background: var(--panel);
@@ -181,6 +181,15 @@ input, select { font: inherit; }
 }
 .cmp-add.on { background: var(--accent); color: #201a08; }
 
+/* 그리드 끝의 "＋ 사진 추가" 타일 */
+.add-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border: 2px dashed var(--line); background: transparent; color: var(--muted); cursor: pointer;
+}
+.add-tile:hover { border-color: var(--accent); color: var(--accent); }
+.add-plus { font-size: 40px; line-height: 1; }
+.add-label { font-size: 13px; font-weight: 600; }
+
 /* ===== 비교 ===== */
 .compare { display: grid; gap: 10px; padding: 12px; height: 100%; }
 .compare.cols1 { grid-template-columns: 1fr; }
@@ -208,7 +217,7 @@ input, select { font: inherit; }
   .tb-filters .f { flex: 0 0 auto; white-space: nowrap; font-size: 12px; }
   .tb-filters select { padding: 5px 6px; font-size: 13px; }
   .tb-filters > select { flex: 1 1 30%; min-width: 0; }   /* '모두' 필터만 늘어남 */
-  #exportBtn, #addBtn, #syncBtn { padding: 6px 9px; font-size: 13px; min-height: 0; }
+  #exportBtn, #syncBtn { padding: 6px 9px; font-size: 13px; min-height: 0; }
 
   /* 그리드: 2열, 파일명은 살짝 크게 */
   .grid { grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 8px; }

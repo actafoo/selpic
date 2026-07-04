@@ -45,6 +45,14 @@ export function renderGrid(root) {
     io.observe(cell);
   }
 
+  // 끝에 "＋ 사진 추가" 타일 (직관적인 추가 진입점)
+  const addTile = el('div', { class: 'cell add-tile', title: '사진 추가' },
+    el('div', { class: 'add-plus' }, '＋'),
+    el('div', { class: 'add-label' }, '사진 추가'),
+  );
+  addTile.addEventListener('click', () => document.dispatchEvent(new CustomEvent('selpic:add')));
+  grid.append(addTile);
+
   function paint() {
     for (const [name, { my, tot }] of badges) {
       const m = myScore(name), t = total(name);

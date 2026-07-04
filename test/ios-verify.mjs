@@ -96,6 +96,23 @@ try {
   await swipe(0.25, 0.75); await sleep(120);           // 오른쪽으로 스와이프 = 이전
   ok((await counter()).startsWith('1'), '스와이프로 이전 복귀');
 
+  // 핀치로 '사진만' 확대 (두 손가락 포인터)
+  const scaleOf = () => page.evaluate(() => {
+    const t = getComputedStyle(document.querySelector('.photo')).transform;
+    const m = t && t.match(/matrix\(([^)]+)\)/); return m ? parseFloat(m[1].split(',')[0]) : 1;
+  });
+  await page.evaluate(() => {
+    const st = document.querySelector('.stage'); const r = st.getBoundingClientRect();
+    const y = r.top + r.height / 2, cxx = r.left + r.width / 2;
+    const ev = (t, id, x) => st.dispatchEvent(new PointerEvent(t, { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, button: 0, bubbles: true }));
+    ev('pointerdown', 1, cxx - 30); ev('pointerdown', 2, cxx + 30);
+    ev('pointermove', 1, cxx - 120); ev('pointermove', 2, cxx + 120);
+    ev('pointerup', 1, cxx - 120); ev('pointerup', 2, cxx + 120);
+  });
+  await sleep(100);
+  ok((await scaleOf()) > 1.1, '핀치로 사진 확대(scale>1)');
+  await page.click('.zoom-bar .zlabel'); await sleep(80);   // 원상복구
+
   await page.evaluate(() => document.activeElement && document.activeElement.blur());
   await page.keyboard.press('4');
   await page.click('#syncBtn');
@@ -109,7 +126,8 @@ try {
 
   await page.click('.view-btn[data-view="grid"]');
   await page.waitForSelector('.grid .cell');
-  ok(await page.locator('.grid .cell').count() === 5, '그리드 5장(추가 반영)');
+  ok(await page.locator('.grid .cell[data-name]').count() === 5, '그리드 5장(추가 반영)');
+  ok(await page.locator('.grid .add-tile').count() === 1, '그리드에 ＋사진 추가 타일');
   ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), '그리드도 가로 오버플로 없음');
   await page.screenshot({ path: path.join(ROOT, 'test', 'screenshot-mobile-grid.png') });
 
