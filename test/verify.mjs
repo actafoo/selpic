@@ -123,6 +123,15 @@ eq(downloads[0], 'IMG_1.jpg\nIMG_2.jpg', 'txt = 파일명 리스트');
 const csv = downloads[1].replace(/^﻿/, '');
 eq(csv, 'filename,groom,bride,total\nIMG_1.jpg,5,4,9\nIMG_2.jpg,4,5,9', 'csv = filename,groom,bride,total');
 
+/* ===== 7) 한글 파일명 NFC 정규화 (맥 NFD ↔ 아이폰/윈도우 NFC) ===== */
+console.log('\n[7] 파일명 NFC 정규화');
+const fsmod = await import('../src/fs.js');
+const nfd = '결혼사진.jpg'.normalize('NFD');
+const nfc = '결혼사진.jpg'.normalize('NFC');
+eq(nfd !== nfc, true, 'NFD와 NFC 원본이 실제로 다름');
+fsmod.useFileList([{ name: nfd }]);                    // 맥에서 온 NFD 파일명
+eq(state.files[0].name, nfc, 'fs가 파일명을 NFC로 정규화(양쪽 기기 일치)');
+
 /* ---------- 결과 ---------- */
 console.log(`\n결과: ${pass} passed, ${fail} failed`);
 server.close();

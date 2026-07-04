@@ -73,6 +73,9 @@ UI 테스트 최초 1회: `npm i && npx playwright install chromium`.
   (퍼센트 height 계산 금지).
 - **확대 중 버튼 클릭 씹힘**: 스테이지 팬(pointer capture)이 클릭을 가로챔 → 줌 컨트롤 위에서는
   pointerdown으로 팬 시작 안 함(`e.target.closest('.zoom-bar')` 가드).
+- **한글 파일명 분리(NFD/NFC)**: 맥(NFD)·아이폰/윈도우(NFC) 간 같은 한글 파일명이 다른 문자열로
+  인식돼 시트에 2행으로 분리됨 → `fs.js`에서 파일명을 `normalize('NFC')`로 통일(양쪽 기기 일치).
+  영문 파일명은 무관. (검증: test/dup-verify.mjs — 실 백엔드로 순차·동시·한글 케이스)
 
 ## 배포(다른 부부용) 확장
 

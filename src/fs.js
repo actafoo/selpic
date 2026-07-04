@@ -33,10 +33,13 @@ export async function resumeFolder() {
   if (perm !== 'granted') throw new Error('폴더 접근 권한이 필요해요');
   await indexDir();
 }
+// 파일명을 NFC로 정규화 → 맥(NFD)·윈도우/아이폰(NFC) 간 같은 한글 파일명이 일치하게 함
+const norm = (s) => s.normalize('NFC');
+
 async function indexDir() {
   fileMap = new Map();
   for await (const entry of dirHandle.values()) {
-    if (entry.kind === 'file' && IMG_RE.test(entry.name)) fileMap.set(entry.name, entry);
+    if (entry.kind === 'file' && IMG_RE.test(entry.name)) fileMap.set(norm(entry.name), entry);
   }
   finalize();
 }
@@ -44,7 +47,7 @@ async function indexDir() {
 export function useFileList(files) {
   dirHandle = null;
   fileMap = new Map();
-  for (const f of files) if (IMG_RE.test(f.name)) fileMap.set(f.name, f);
+  for (const f of files) if (IMG_RE.test(f.name)) fileMap.set(norm(f.name), f);
   finalize();
 }
 export async function hasSavedFolder() {
