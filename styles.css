@@ -1,0 +1,187 @@
+:root {
+  --bg: #14161a;
+  --panel: #1d2027;
+  --panel-2: #262a33;
+  --line: #333844;
+  --text: #e8eaed;
+  --muted: #9aa0aa;
+  --accent: #e6b455;      /* 골드톤 */
+  --accent-2: #6ea8fe;
+  --star: #f5c451;
+  --hi: #58c07a;
+  --danger: #e06c6c;
+}
+
+* { box-sizing: border-box; }
+/* display를 지정하는 규칙이 UA의 [hidden]{display:none}을 덮어쓰지 않도록 강제 */
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo",
+        "Malgun Gothic", sans-serif;
+}
+button { font: inherit; cursor: pointer; }
+input, select { font: inherit; }
+
+/* ===== 접속 화면 ===== */
+.connect {
+  min-height: 100vh; display: grid; place-items: center; padding: 24px;
+}
+.connect-card {
+  width: min(460px, 100%);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,.35);
+}
+.connect-card h1 { margin: 0 0 4px; font-size: 30px; }
+.connect-card .sub { margin: 0 0 22px; color: var(--muted); }
+.field { display: block; margin-bottom: 18px; font-weight: 600; }
+.field .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+#urlInput {
+  width: 100%; margin-top: 8px; padding: 11px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+}
+.role-toggle { display: flex; gap: 10px; margin-top: 8px; }
+.role-btn {
+  flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); font-weight: 600;
+}
+.role-btn.sel { border-color: var(--accent); background: rgba(230,180,85,.14); color: var(--accent); }
+.connect-actions { margin-top: 6px; }
+.primary {
+  background: var(--accent); color: #201a08; border: none; border-radius: 10px;
+  padding: 12px 16px; font-weight: 700; width: 100%;
+}
+.primary.sm { width: auto; padding: 7px 12px; border-radius: 8px; font-weight: 600; }
+.primary:disabled { opacity: .45; cursor: not-allowed; }
+.resume { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+.link { background: none; border: none; color: var(--accent-2); padding: 0; text-decoration: underline; }
+.msg { min-height: 20px; margin: 10px 0 0; color: var(--accent-2); font-size: 13px; }
+.privacy { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 12.5px; }
+
+/* ===== 앱 레이아웃 ===== */
+#app { display: flex; flex-direction: column; height: 100vh; }
+.topbar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.tb-left { display: flex; align-items: center; gap: 12px; }
+.role-badge { font-weight: 700; }
+.progress { color: var(--muted); font-size: 13px; }
+.tb-views { display: flex; gap: 6px; margin-left: auto; }
+.view-btn {
+  padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text);
+}
+.view-btn.active { border-color: var(--accent); color: var(--accent); }
+.cmp-count { color: var(--muted); font-size: 12px; margin-left: 4px; }
+.tb-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tb-filters .f { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 13px; }
+.tb-filters select {
+  padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text);
+}
+#syncBtn { padding: 7px 11px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); }
+#main { flex: 1; overflow: auto; position: relative; }
+.statusbar { height: 24px; padding: 2px 16px; background: var(--panel);
+  border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+.empty { display: grid; place-items: center; height: 100%; color: var(--muted); padding: 40px; text-align: center; }
+
+/* ===== 1장 모드 ===== */
+/* 뷰포트를 꽉 채우는 flex 컬럼: 사진 영역이 남는 높이를 모두 차지하고,
+   사진은 그 안에서 가로/세로 어느 쪽이 길든 항상 한눈에 들어오게 축소된다. */
+.rate { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.stage {
+  position: relative;                     /* 줌 바 앵커 */
+  flex: 1; min-height: 0;                 /* min-height:0 이 있어야 사진이 넘치지 않고 줄어듦 */
+  display: flex; align-items: center; justify-content: center;
+  background: #0d0f12; padding: 12px; overflow: hidden;
+  touch-action: none;                     /* 팬 제스처가 페이지 스크롤로 새지 않게 */
+}
+.photo {
+  max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px;
+  transform-origin: center center; will-change: transform; user-select: none; -webkit-user-drag: none;
+}
+.zoom-bar {
+  position: absolute; bottom: 10px; right: 12px; z-index: 2;
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,.55); padding: 4px 8px; border-radius: 10px; opacity: .85;
+}
+.zoom-bar:hover { opacity: 1; }
+.zbtn {
+  width: 26px; height: 26px; border: none; border-radius: 7px;
+  background: var(--panel-2); color: var(--text); font-size: 16px; line-height: 1;
+}
+.zlabel { min-width: 44px; text-align: center; color: #fff; font-size: 12px; }
+/* 얇은 한 줄 바: [◀] n/m  파일명  ★별점  점수  [▶] */
+.rate-bar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 6px 12px; background: var(--panel); border-top: 1px solid var(--line);
+}
+.rate-bar .rate-center { min-width: 60px; text-align: center; color: var(--muted); font-size: 12px; }
+.rate-info { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.fname { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 320px; }
+.scores { display: flex; gap: 12px; color: var(--muted); font-size: 13px; }
+.scores .tot { color: var(--text); font-weight: 700; }
+.navbtn { padding: 9px 16px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); }
+.navbtn.sm { padding: 5px 10px; font-size: 13px; }
+
+/* ===== 별점 ===== */
+.stars { display: inline-flex; gap: 2px; }
+.stars .star {
+  background: none; border: none; color: #4a4f5a; line-height: 1; padding: 0 1px;
+}
+.stars .star.on { color: var(--star); }
+.stars.lg .star { font-size: 30px; }
+.stars.md .star { font-size: 20px; }
+.stars.sm .star { font-size: 14px; }
+
+/* ===== 그리드 ===== */
+.grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px; padding: 12px;
+}
+.cell {
+  position: relative; background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 10px; overflow: hidden; cursor: pointer; aspect-ratio: 1 / 1;
+}
+.cell .thumb { width: 100%; height: 100%; object-fit: cover; display: block;
+  background: #0d0f12; }
+.cell-badges { position: absolute; top: 6px; left: 6px; display: flex; gap: 4px; }
+.cell-badges span {
+  font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+  background: rgba(0,0,0,.6); color: #fff;
+}
+.b-my.none { display: none; }
+.b-tot.hi { background: var(--hi); color: #0c1a11; }
+.cell-name {
+  position: absolute; bottom: 0; left: 0; right: 0; padding: 3px 6px;
+  font-size: 10px; color: #d7dbe0; background: linear-gradient(transparent, rgba(0,0,0,.75));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmp-add {
+  position: absolute; top: 6px; right: 6px; width: 26px; height: 26px;
+  border-radius: 7px; border: none; background: rgba(0,0,0,.6); color: #fff;
+}
+.cmp-add.on { background: var(--accent); color: #201a08; }
+
+/* ===== 비교 ===== */
+.compare { display: grid; gap: 10px; padding: 12px; height: 100%; }
+.compare.cols1 { grid-template-columns: 1fr; }
+.compare.cols2 { grid-template-columns: 1fr 1fr; }
+.compare.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+.compare.cols4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.cmp-panel {
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; overflow: hidden; min-height: 0;
+}
+.cmp-photo { flex: 1; min-height: 0; object-fit: contain; background: #0d0f12; }
+.cmp-info { padding: 10px; text-align: center; }
+.cmp-panel .rm { margin: 0 0 8px; }

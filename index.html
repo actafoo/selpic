@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selpic — 웨딩 사진 셀렉</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===== 접속 화면 ===== -->
+<section id="connect" class="connect">
+  <div class="connect-card">
+    <h1>💍 Selpic</h1>
+    <p class="sub">웨딩 사진을 각자 매기고, 합계 높은 사진만 뽑아요.</p>
+
+    <label class="field">나는…
+      <div class="role-toggle">
+        <button type="button" data-role="groom" class="role-btn">🤵 신랑</button>
+        <button type="button" data-role="bride" class="role-btn">👰 신부</button>
+      </div>
+    </label>
+
+    <label class="field">구글 시트 웹앱 URL
+      <span class="hint">(Apps Script 배포 URL — 최초 1회만)</span>
+      <input id="urlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+    </label>
+
+    <div class="connect-actions">
+      <button id="pickBtn" class="primary" disabled>📂 사진 폴더 선택 &amp; 시작</button>
+      <input id="folderFallback" type="file" webkitdirectory multiple hidden>
+    </div>
+
+    <p id="resumeRow" class="resume" hidden>
+      이전에 열었던 폴더가 있어요 · <button id="resumeBtn" class="link">▶ 이어서 열기</button>
+    </p>
+
+    <p id="connectMsg" class="msg"></p>
+
+    <p class="privacy">🔒 사진은 <b>업로드되지 않습니다.</b> 브라우저에서 보기만 하고,
+      점수(파일명 + 숫자)만 구글 시트로 전송돼요.</p>
+  </div>
+</section>
+
+<!-- ===== 앱 화면 ===== -->
+<section id="app" hidden>
+  <header class="topbar">
+    <div class="tb-left">
+      <span id="roleBadge" class="role-badge"></span>
+      <span id="progress" class="progress"></span>
+    </div>
+
+    <nav class="tb-views">
+      <button data-view="rate" class="view-btn">🖼 1장</button>
+      <button data-view="grid" class="view-btn">▦ 그리드</button>
+      <button data-view="compare" class="view-btn">⚖ 비교<span id="cmpCount" class="cmp-count"></span></button>
+    </nav>
+
+    <div class="tb-filters">
+      <label class="f">합계≥
+        <select id="minTotal">
+          <option value="0">전체</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+        </select>
+      </label>
+      <select id="modeSel" title="필터">
+        <option value="all">모두</option>
+        <option value="rated-mine">내가 매긴 것</option>
+        <option value="unrated-mine">아직 안 매긴 것</option>
+      </select>
+      <label class="f"><input type="checkbox" id="sortToggle"> 합계순</label>
+      <button id="exportBtn" class="primary sm">⬇ 최종 내보내기</button>
+      <button id="syncBtn" class="sm" title="지금 동기화">⟳</button>
+    </div>
+  </header>
+
+  <main id="main"></main>
+
+  <footer class="statusbar"><span id="statusMsg"></span></footer>
+</section>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "selpic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "웨딩 사진 셀렉 웹앱 (신랑·신부 협업 레이팅)",
+  "scripts": {
+    "serve": "npx serve .",
+    "test": "node test/verify.mjs",
+    "test:ui": "node test/ui-verify.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
+}
