@@ -23,8 +23,17 @@ function initConnect() {
   document.querySelectorAll('.role-btn').forEach(b => b.onclick = () => selectRole(b.dataset.role));
   $('#urlInput').oninput = validateConnect;
   $('#pickBtn').onclick = onPick;
-  $('#folderFallback').onchange = (e) => { if (e.target.files?.length) start(() => fs.useFileList(e.target.files)); };
+  const onFiles = (e) => { if (e.target.files?.length) start(() => fs.useFileList(e.target.files)); };
+  $('#folderFallback').onchange = onFiles;
+  $('#filesFallback').onchange = onFiles;
   $('#resumeBtn').onclick = () => start(() => fs.resumeFolder());
+
+  // 아이폰 등 폴더 선택 미지원 환경: 다중 파일 선택 안내
+  if (!window.showDirectoryPicker && isIOS()) {
+    $('#pickBtn').textContent = '🖼 사진 여러 장 선택 & 시작';
+    const h = $('#pickHint'); h.hidden = false;
+    h.textContent = '아이폰은 폴더 선택이 안 돼요. 파일 앱에서 웨딩 사진(jpg)을 전체 선택하세요. (매번 다시 선택해야 함)';
+  }
 
   fs.hasSavedFolder().then(has => { if (has && savedRole && savedUrl) $('#resumeRow').hidden = false; });
   validateConnect();
@@ -37,9 +46,14 @@ function selectRole(r) {
 function validateConnect() {
   $('#pickBtn').disabled = !(selectedRole && $('#urlInput').value.trim());
 }
+function isIOS() {
+  return /iP(hone|od|ad)/.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS 13+
+}
 function onPick() {
-  if (!window.showDirectoryPicker) { $('#folderFallback').click(); return; }  // 폴백
-  start(() => fs.pickFolder());
+  if (window.showDirectoryPicker) { start(() => fs.pickFolder()); return; }     // 데스크톱 크롬/엣지
+  if (isIOS()) { $('#filesFallback').click(); return; }                         // 아이폰: 다중 파일 선택
+  $('#folderFallback').click();                                                 // 데스크톱 파폭/사파리: 폴더 선택
 }
 function msg(t) { $('#connectMsg').textContent = t; }
 
