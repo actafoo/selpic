@@ -69,17 +69,39 @@ export function renderRate(root) {
   }, { passive: false });
   // 더블클릭: 맞춤 ↔ 2.5배 토글
   stage.addEventListener('dblclick', (e) => { if (scale > 1) resetZoom(); else zoomAt(2.5, e.clientX, e.clientY); });
-  // 드래그 이동(팬)
-  let drag = false, sx = 0, sy = 0, stx = 0, sty = 0;
+  // 드래그 이동(팬, 손가락 1개) + 핀치 확대(손가락 2개)
+  const pointers = new Map();
+  let drag = false, sx = 0, sy = 0, stx = 0, sty = 0, pinchDist = 0;
+  const dist2 = () => { const [a, b] = [...pointers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  const mid2  = () => { const [a, b] = [...pointers.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
   stage.addEventListener('pointerdown', (e) => {
-    if (scale <= 1 || e.button !== 0 || e.target.closest('.zoom-bar')) return;  // 줌 버튼 클릭은 팬 아님
-    drag = true; sx = e.clientX; sy = e.clientY; stx = tx; sty = ty;
-    img.style.cursor = 'grabbing'; stage.setPointerCapture(e.pointerId);
+    if (e.target.closest('.zoom-bar')) return;                 // 줌 버튼 클릭은 제외
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {                                 // 핀치 시작
+      drag = false; pinchDist = dist2();
+    } else if (pointers.size === 1 && scale > 1 && e.button === 0) {  // 팬 시작(확대 상태)
+      drag = true; sx = e.clientX; sy = e.clientY; stx = tx; sty = ty; img.style.cursor = 'grabbing';
+      if (e.pointerType === 'mouse') stage.setPointerCapture(e.pointerId);
+    }
   });
-  stage.addEventListener('pointermove', (e) => { if (!drag) return; tx = stx + (e.clientX - sx); ty = sty + (e.clientY - sy); apply(); });
-  const endDrag = (e) => { if (drag) { drag = false; img.style.cursor = scale > 1 ? 'grab' : 'default'; try { stage.releasePointerCapture(e.pointerId); } catch {} } };
-  stage.addEventListener('pointerup', endDrag);
-  stage.addEventListener('pointercancel', endDrag);
+  stage.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size >= 2) {                                  // 핀치 확대
+      const d = dist2(), m = mid2();
+      if (pinchDist > 0) zoomAt(d / pinchDist, m.x, m.y);
+      pinchDist = d;
+    } else if (drag) {
+      tx = stx + (e.clientX - sx); ty = sty + (e.clientY - sy); apply();
+    }
+  });
+  const endPtr = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchDist = 0;
+    if (pointers.size === 0 && drag) { drag = false; img.style.cursor = scale > 1 ? 'grab' : 'default'; try { stage.releasePointerCapture(e.pointerId); } catch {} }
+  };
+  stage.addEventListener('pointerup', endPtr);
+  stage.addEventListener('pointercancel', endPtr);
 
   /* ---------- 네비게이션/렌더 ---------- */
   function resolve(list) {
