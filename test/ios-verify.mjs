@@ -118,7 +118,7 @@ try {
   await page.keyboard.press('4');
   await page.click('#syncBtn');
   await page.waitForTimeout(500);
-  ok(sheet.get('IMG_001.jpg')?.bride === 4, '아이폰에서 평점 → 시트 반영');
+  ok(sheet.get('img_001.jpg')?.bride === 4, '아이폰에서 평점 → 시트 반영(정규화 키)');
 
   // 사진 추가(덧붙이기): 2장 더 → 총 5장, 기존 평점 유지
   await page.setInputFiles('#addFiles', EXTRA);

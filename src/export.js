@@ -1,7 +1,7 @@
 // 최종 내보내기: 현재 필터/정렬이 적용된 목록을 파일명 리스트로 저장.
 // - selpic-selected.txt : 한 줄에 파일명 하나
 // - selpic-selected.csv : filename, groom, bride, total
-import { navList, groomScore, brideScore, total } from './ratings.js';
+import { navList, groomScore, brideScore, total, nameOf } from './ratings.js';
 
 export function exportSelection() {
   const list = navList();
@@ -9,10 +9,10 @@ export function exportSelection() {
 
   const stamp = new Date().toISOString().slice(0, 10);
 
-  download(`selpic-${stamp}.txt`, list.join('\n'), 'text/plain');
+  download(`selpic-${stamp}.txt`, list.map(nameOf).join('\n'), 'text/plain');   // 원래 파일명으로 내보내기
 
   const rows = [['filename', 'groom', 'bride', 'total']];
-  for (const n of list) rows.push([n, groomScore(n), brideScore(n), total(n)]);
+  for (const n of list) rows.push([nameOf(n), groomScore(n), brideScore(n), total(n)]);
   const csv = rows.map(r => r.map(cell).join(',')).join('\n');
   download(`selpic-${stamp}.csv`, '﻿' + csv, 'text/csv');   // BOM: 엑셀 한글 대응
 }

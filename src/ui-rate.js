@@ -1,6 +1,6 @@
 // 1장 모드: 큰 사진 한 장, 방향키 이동, 숫자키(1~5) 즉시 평점.
 // 확대: 휠/버튼/단축키(+,-,f)로 줌, 확대 상태에서 드래그로 이동(팬), 더블클릭 토글.
-import { state, navList, setMyScore, groomScore, brideScore, total } from './ratings.js';
+import { state, navList, setMyScore, groomScore, brideScore, total, nameOf } from './ratings.js';
 import { el, clear, myStars } from './ui-common.js';
 import * as fs from './fs.js';
 
@@ -167,7 +167,7 @@ export function renderRate(root) {
     if (!cur) { center.textContent = ''; return; }
     center.textContent = `${list.indexOf(cur) + 1} / ${list.length}`;
     info.append(
-      el('div', { class: 'fname' }, cur),
+      el('div', { class: 'fname' }, nameOf(cur)),
       myStars(cur, 'md'),
       el('div', { class: 'scores' },
         el('span', {}, `🤵 ${groomScore(cur) || '-'}`),

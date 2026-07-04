@@ -73,9 +73,12 @@ UI 테스트 최초 1회: `npm i && npx playwright install chromium`.
   (퍼센트 height 계산 금지).
 - **확대 중 버튼 클릭 씹힘**: 스테이지 팬(pointer capture)이 클릭을 가로챔 → 줌 컨트롤 위에서는
   pointerdown으로 팬 시작 안 함(`e.target.closest('.zoom-bar')` 가드).
-- **한글 파일명 분리(NFD/NFC)**: 맥(NFD)·아이폰/윈도우(NFC) 간 같은 한글 파일명이 다른 문자열로
-  인식돼 시트에 2행으로 분리됨 → `fs.js`에서 파일명을 `normalize('NFC')`로 통일(양쪽 기기 일치).
-  영문 파일명은 무관. (검증: test/dup-verify.mjs — 실 백엔드로 순차·동시·한글 케이스)
+- **같은 사진이 2행으로 분리(파일명 불일치)**: 기기마다 확장자·대소문자·유니코드 정규화가 달라
+  (`.jpg` vs `.jpeg`, `.JPG`, NFD vs NFC) 같은 사진이 다른 파일명으로 인식돼 시트에 2행으로 분리,
+  서로 점수가 안 보임 → **정규화 키**(`canon()` in ratings.js: NFC+소문자+`.jpe?g`→`.jpg`)를
+  식별자로 사용. `applyRemote`가 키로 병합해 **기존에 갈라진 행도 읽을 때 자동 합쳐짐**.
+  표시·내보내기는 원래 파일명(`state.names`/`nameOf`) 유지. 내 점수는 로컬 없으면 시트값으로 폴백.
+  (검증: test/verify.mjs [7]~[9], test/dup-verify.mjs)
 
 ## 배포(다른 부부용) 확장
 

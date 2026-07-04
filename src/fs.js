@@ -1,20 +1,23 @@
 // 로컬 사진 폴더 접근. 사진은 여기서만 다루며 절대 네트워크로 나가지 않는다.
 // - File System Access API(크롬/엣지): 폴더 핸들을 IndexedDB에 저장해 재접속 시 재사용
 // - 미지원 브라우저: <input webkitdirectory> FileList 폴백
-import { state } from './ratings.js';
+import { state, canon } from './ratings.js';
 
 const IMG_RE = /\.jpe?g$/i;
 const MAX_URLS = 150;              // 오브젝트 URL 캐시 상한(메모리 보호)
 
-let fileMap = new Map();           // name -> FileSystemFileHandle | File
+let fileMap = new Map();           // key(정규화) -> FileSystemFileHandle | File
+let nameMap = new Map();           // key(정규화) -> 원래 파일명
 let dirHandle = null;
-const urlCache = new Map();        // name -> objectURL (삽입순 = LRU)
+const urlCache = new Map();        // key -> objectURL (삽입순 = LRU)
 
 function naturalSort(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }); }
+function put(name, ent) { const k = canon(name); fileMap.set(k, ent); nameMap.set(k, name); }  // 키로 저장 + 원래 이름 기록
 
 function finalize() {
-  const names = [...fileMap.keys()].sort(naturalSort);
-  state.files = names.map(name => ({ name }));
+  const keys = [...fileMap.keys()].sort((a, b) => naturalSort(nameMap.get(a) || a, nameMap.get(b) || b));
+  state.files = keys;              // 정규화 키 목록(표시명 기준 정렬)
+  state.names = nameMap;
   state.folderName = dirHandle?.name || 'folder';
 }
 
@@ -33,33 +36,30 @@ export async function resumeFolder() {
   if (perm !== 'granted') throw new Error('폴더 접근 권한이 필요해요');
   await indexDir();
 }
-// 파일명을 NFC로 정규화 → 맥(NFD)·윈도우/아이폰(NFC) 간 같은 한글 파일명이 일치하게 함
-const norm = (s) => s.normalize('NFC');
-
 async function indexDir() {
-  fileMap = new Map();
+  fileMap = new Map(); nameMap = new Map();
   for await (const entry of dirHandle.values()) {
-    if (entry.kind === 'file' && IMG_RE.test(entry.name)) fileMap.set(norm(entry.name), entry);
+    if (entry.kind === 'file' && IMG_RE.test(entry.name)) put(entry.name, entry);
   }
   finalize();
 }
 // 폴백: <input webkitdirectory>의 FileList
 export function useFileList(files) {
   dirHandle = null;
-  fileMap = new Map();
-  for (const f of files) if (IMG_RE.test(f.name)) fileMap.set(norm(f.name), f);
+  fileMap = new Map(); nameMap = new Map();
+  for (const f of files) if (IMG_RE.test(f.name)) put(f.name, f);
   finalize();
 }
 
 // ----- 사진 추가(기존 선택에 덧붙이기) -----
 export function addFiles(files) {                 // 다중 파일 선택으로 추가
-  for (const f of files) if (IMG_RE.test(f.name)) fileMap.set(norm(f.name), f);
+  for (const f of files) if (IMG_RE.test(f.name)) put(f.name, f);
   finalize();
 }
 export async function addFolder() {               // 폴더로 추가(데스크톱)
   const h = await window.showDirectoryPicker({ id: 'selpic-add', mode: 'read' });
   for await (const entry of h.values()) {
-    if (entry.kind === 'file' && IMG_RE.test(entry.name)) fileMap.set(norm(entry.name), entry);
+    if (entry.kind === 'file' && IMG_RE.test(entry.name)) put(entry.name, entry);
   }
   finalize();
 }

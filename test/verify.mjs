@@ -66,71 +66,91 @@ const eq = (got, want, msg) => {
 
 const { state } = R;
 state.webAppUrl = url;
-// fs.js가 naturalSort로 정렬해 넘겨주는 순서를 그대로 재현(IMG_3 < IMG_10)
-state.files = ['IMG_1.jpg', 'IMG_2.jpg', 'IMG_3.jpg', 'IMG_10.jpg'].map(name => ({ name }));
+// 앱과 동일하게 '정규화 키'를 식별자로 사용(fs가 소문자 .jpg 키를 만든다)
+const FILES = ['img_1.jpg', 'img_2.jpg', 'img_3.jpg', 'img_10.jpg'];
+state.names = new Map(FILES.map(n => [n, n]));
+state.files = FILES.slice();
 sync.setBackend(createSheetsBackend({ url }));
 
 /* ===== 1) ratings 순수 로직 ===== */
 console.log('\n[1] ratings 로직');
 state.role = 'groom'; R.loadPersisted();
-R.setMyScore('IMG_1.jpg', 5);
-R.setMyScore('IMG_2.jpg', 4);
-R.setMyScore('IMG_10.jpg', 2);
-eq(R.myScore('IMG_1.jpg'), 5, 'setMyScore 반영');
-eq(R.myScore('IMG_9.jpg'), 0, '미평가는 0');
-eq(R.navList(), ['IMG_1.jpg', 'IMG_2.jpg', 'IMG_3.jpg', 'IMG_10.jpg'], 'navList가 파일 순서 보존');
+R.setMyScore('img_1.jpg', 5);
+R.setMyScore('img_2.jpg', 4);
+R.setMyScore('img_10.jpg', 2);
+eq(R.myScore('img_1.jpg'), 5, 'setMyScore 반영');
+eq(R.myScore('img_9.jpg'), 0, '미평가는 0');
+eq(R.navList(), ['img_1.jpg', 'img_2.jpg', 'img_3.jpg', 'img_10.jpg'], 'navList가 파일 순서 보존');
 eq(R.counts(), { total: 4, rated: 3 }, '카운트');
 
 /* ===== 2) 신랑 → 시트 push ===== */
 console.log('\n[2] 신랑 점수 push');
 await sync.flush();
 eq(lastPost.role, 'groom', 'POST role=groom');
-eq(sheet.get('IMG_1.jpg'), { groom: 5, bride: 0 }, '시트에 신랑 점수 저장');
+eq(sheet.get('img_1.jpg'), { groom: 5, bride: 0 }, '시트에 신랑 점수 저장');
 eq([...state.pending].length, 0, 'flush 후 pending 비움');
 
 /* ===== 3) 신부(다른 기기)로 전환해 push ===== */
 console.log('\n[3] 신부 점수 push');
 state.role = 'bride'; R.loadPersisted();
-eq(R.myScore('IMG_1.jpg'), 0, '신부는 아직 로컬 점수 없음');
-R.setMyScore('IMG_1.jpg', 4);
-R.setMyScore('IMG_2.jpg', 5);
-R.setMyScore('IMG_3.jpg', 5);
+eq(R.myScore('img_1.jpg'), 0, '신부는 아직 로컬 점수 없음');
+R.setMyScore('img_1.jpg', 4);
+R.setMyScore('img_2.jpg', 5);
+R.setMyScore('img_3.jpg', 5);
 await sync.flush();
-eq(sheet.get('IMG_1.jpg'), { groom: 5, bride: 4 }, '같은 파일에 신랑·신부 점수 공존');
+eq(sheet.get('img_1.jpg'), { groom: 5, bride: 4 }, '같은 파일에 신랑·신부 점수 공존');
 
 /* ===== 4) 신랑이 다시 열어 동기화 → 합계 결합 ===== */
 console.log('\n[4] 신랑 재접속 pull → 합계 결합');
 state.role = 'groom'; R.loadPersisted();
 await sync.pollNow();
-eq(R.groomScore('IMG_1.jpg'), 5, 'groomScore');
-eq(R.brideScore('IMG_1.jpg'), 4, 'brideScore(상대)');
-eq(R.total('IMG_1.jpg'), 9, 'IMG_1 합계 9');
-eq(R.total('IMG_2.jpg'), 9, 'IMG_2 합계 9');
-eq(R.total('IMG_10.jpg'), 2, 'IMG_10 합계 2 (신랑만)');
-eq(R.total('IMG_3.jpg'), 5, 'IMG_3 합계 5 (신부만)');
+eq(R.groomScore('img_1.jpg'), 5, 'groomScore');
+eq(R.brideScore('img_1.jpg'), 4, 'brideScore(상대)');
+eq(R.total('img_1.jpg'), 9, 'img_1 합계 9');
+eq(R.total('img_2.jpg'), 9, 'img_2 합계 9');
+eq(R.total('img_10.jpg'), 2, 'img_10 합계 2 (신랑만)');
+eq(R.total('img_3.jpg'), 5, 'img_3 합계 5 (신부만)');
 eq([...state.pending].length, 0, 'pull이 pending 재확인·정리');
 
 /* ===== 5) 필터/정렬 ===== */
 console.log('\n[5] 합계 필터·정렬');
 state.filter = { minTotal: 9, mode: 'all', sortByTotal: true };
-eq(R.navList(), ['IMG_1.jpg', 'IMG_2.jpg'], '합계≥9 필터 + 합계순');
+eq(R.navList(), ['img_1.jpg', 'img_2.jpg'], '합계≥9 필터 + 합계순');
 
 /* ===== 6) 최종 내보내기 ===== */
 console.log('\n[6] 최종 내보내기(txt/csv)');
 downloads.length = 0;
 exportSelection();
-eq(downloads[0], 'IMG_1.jpg\nIMG_2.jpg', 'txt = 파일명 리스트');
+eq(downloads[0], 'img_1.jpg\nimg_2.jpg', 'txt = 파일명 리스트');
 const csv = downloads[1].replace(/^﻿/, '');
-eq(csv, 'filename,groom,bride,total\nIMG_1.jpg,5,4,9\nIMG_2.jpg,4,5,9', 'csv = filename,groom,bride,total');
+eq(csv, 'filename,groom,bride,total\nimg_1.jpg,5,4,9\nimg_2.jpg,4,5,9', 'csv = filename,groom,bride,total');
 
-/* ===== 7) 한글 파일명 NFC 정규화 (맥 NFD ↔ 아이폰/윈도우 NFC) ===== */
-console.log('\n[7] 파일명 NFC 정규화');
-const fsmod = await import('../src/fs.js');
-const nfd = '결혼사진.jpg'.normalize('NFD');
-const nfc = '결혼사진.jpg'.normalize('NFC');
+/* ===== 7) 정규화 키: 확장자/대소문자/NFD·NFC ===== */
+console.log('\n[7] 파일명 정규화 키');
+eq(R.canon('NT0612_4605.jpeg'), R.canon('NT0612_4605.jpg'), '.jpeg와 .jpg가 같은 키');
+eq(R.canon('A.JPG'), R.canon('a.jpg'), '대소문자가 같은 키');
+const nfd = '결혼사진.jpg'.normalize('NFD'), nfc = '결혼사진.jpg'.normalize('NFC');
 eq(nfd !== nfc, true, 'NFD와 NFC 원본이 실제로 다름');
-fsmod.useFileList([{ name: nfd }]);                    // 맥에서 온 NFD 파일명
-eq(state.files[0].name, nfc, 'fs가 파일명을 NFC로 정규화(양쪽 기기 일치)');
+eq(R.canon(nfd), R.canon(nfc), 'NFD/NFC가 같은 키');
+
+/* ===== 8) 확장자 다른 두 행 병합 → 서로 점수 보임 (실제 버그) ===== */
+console.log('\n[8] 확장자 다른 같은 사진 병합');
+state.role = 'groom'; state.mine = new Map(); state.pending = new Map();
+R.applyRemote([
+  { filename: 'NT0612_4605.jpeg', groom: 0, bride: 3 },   // 신부가 .jpeg로 매김
+  { filename: 'NT0612_4605.jpg',  groom: 4, bride: 0 },   // 신랑이 .jpg로 매김
+]);
+const key = R.canon('NT0612_4605.jpg');
+eq(R.groomScore(key), 4, '신랑 점수 4');
+eq(R.brideScore(key), 3, '신부 점수 3 (병합돼 보임)');
+eq(R.total(key), 7, '합계 7 — 서로 점수가 보인다');
+
+/* ===== 9) fs는 원래 이름 유지하며 키만 정규화 ===== */
+console.log('\n[9] fs 키 정규화 + 원래 이름 유지');
+const fsmod = await import('../src/fs.js');
+fsmod.useFileList([{ name: 'NT0612_4605.JPEG' }]);
+eq(state.files[0], R.canon('NT0612_4605.jpg'), 'fs가 정규화 키 사용');
+eq(R.nameOf(state.files[0]), 'NT0612_4605.JPEG', '표시는 원래 파일명 유지');
 
 /* ---------- 결과 ---------- */
 console.log(`\n결과: ${pass} passed, ${fail} failed`);

@@ -1,5 +1,5 @@
 // 비교 모드: 담아둔 사진 2~4장을 나란히 보며 평점.
-import { state, toggleCompare, groomScore, brideScore, total } from './ratings.js';
+import { state, toggleCompare, groomScore, brideScore, total, nameOf } from './ratings.js';
 import { el, clear, myStars } from './ui-common.js';
 import * as fs from './fs.js';
 
@@ -30,7 +30,7 @@ export function renderCompare(root) {
     for (const [name, info] of infos) {
       clear(info);
       info.append(
-        el('div', { class: 'fname' }, name),
+        el('div', { class: 'fname' }, nameOf(name)),
         el('div', { class: 'myrate' }, myStars(name, 'md')),
         el('div', { class: 'scores' },
           el('span', {}, `🤵 ${groomScore(name) || '-'}`),

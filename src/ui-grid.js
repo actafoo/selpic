@@ -1,5 +1,5 @@
 // 그리드 모드: 썸네일 격자 + 내 점수/합계 뱃지. 지연 로딩(IntersectionObserver).
-import { state, navList, myScore, total, toggleCompare } from './ratings.js';
+import { state, navList, myScore, total, toggleCompare, nameOf } from './ratings.js';
 import { el } from './ui-common.js';
 import * as fs from './fs.js';
 
@@ -37,7 +37,7 @@ export function renderGrid(root) {
       el('img', { class: 'thumb', alt: '' }),
       el('div', { class: 'cell-badges' }, my, tot),
       cmp,
-      el('div', { class: 'cell-name' }, name),
+      el('div', { class: 'cell-name' }, nameOf(name)),
     );
     cell.addEventListener('click', () => document.dispatchEvent(new CustomEvent('selpic:open', { detail: { name } })));
     badges.set(name, { my, tot });
