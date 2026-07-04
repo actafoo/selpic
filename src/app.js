@@ -7,12 +7,14 @@ import { renderRate } from './ui-rate.js';
 import { renderGrid } from './ui-grid.js';
 import { renderCompare } from './ui-compare.js';
 import { exportSelection } from './export.js';
-import { clear } from './ui-common.js';
+import { renderStats } from './ui-stats.js';
+import { el, clear } from './ui-common.js';
 import { DEFAULT_SHEET_URL } from './config.js';
 
 const $ = (s) => document.querySelector(s);
 let selectedRole = null;
 let currentView = null;   // { update, dispose }
+let statsView = null;     // 별점 통계 패널(항상 표시, 뷰 전환과 무관)
 
 /* ================= 접속 화면 ================= */
 function initConnect() {
@@ -100,6 +102,23 @@ function enterApp() {
   document.addEventListener('selpic:open', (e) => { state.current = e.detail.name; switchView('rate'); });
   document.addEventListener('selpic:view', (e) => switchView(e.detail.view));
 
+  // 별점 통계 패널(항상 표시, 📊로 토글)
+  const statsPanel = el('aside', { id: 'statsPanel' });
+  $('#app').append(statsPanel);
+  statsView = renderStats(statsPanel);
+  const positionStats = () => { statsPanel.style.top = (($('.topbar')?.offsetHeight || 48) + 6) + 'px'; };
+  positionStats();
+  window.addEventListener('resize', positionStats);
+  const showStats = localStorage.getItem('selpic:stats') !== '0';
+  statsPanel.hidden = !showStats;
+  $('#statsBtn').classList.toggle('active', showStats);
+  $('#statsBtn').onclick = () => {
+    const on = statsPanel.hidden;
+    statsPanel.hidden = !on;
+    $('#statsBtn').classList.toggle('active', on);
+    localStorage.setItem('selpic:stats', on ? '1' : '0');
+  };
+
   subscribe(onStore);
   // 백엔드 교체 지점: 지금은 구글 시트. 배포 버전에선 createSupabaseBackend 등으로 교체.
   setBackend(createSheetsBackend({ url: state.webAppUrl }));
@@ -129,7 +148,7 @@ function rerender() {
   else                              currentView = renderCompare(main);
   updateTopbar();
 }
-function onStore() { updateTopbar(); currentView?.update?.(); }
+function onStore() { updateTopbar(); currentView?.update?.(); statsView?.update?.(); }
 function updateTopbar() {
   const c = counts();
   $('#progress').textContent = `${c.rated} / ${c.total} 매김`;

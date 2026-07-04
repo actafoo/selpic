@@ -177,6 +177,16 @@ try {
   ok(csv.startsWith('filename,groom,bride,total'), 'csv 헤더');
   ok(/,5,4,9/.test(csv), 'csv에 5,4,9 행 존재');
 
+  /* 통계 패널 */
+  console.log('\n[통계] 별점 분포 패널');
+  ok(await page.locator('#statsPanel').isVisible(), '통계 패널 표시');
+  const st = await page.textContent('#statsPanel');
+  ok(st.includes('신랑') && st.includes('신부') && st.includes('평균'), '신랑·신부 분포·평균 표시');
+  await page.click('#statsBtn');
+  ok(!(await page.locator('#statsPanel').isVisible()), '📊 토글로 숨김');
+  await page.click('#statsBtn');
+  ok(await page.locator('#statsPanel').isVisible(), '📊 토글로 다시 표시');
+
   /* 7) 콘솔 에러 없음 */
   console.log('\n[7] 콘솔 에러');
   eq(errors, [], '페이지 런타임 에러 없음');

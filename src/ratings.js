@@ -104,6 +104,13 @@ export function counts() {
   return { total: state.files.length, rated };
 }
 
+// 별점 분포: groom[0..5]/bride[0..5] (index 0 = 미평가, 1~5 = 별점별 장수)
+export function ratingStats() {
+  const g = [0, 0, 0, 0, 0, 0], b = [0, 0, 0, 0, 0, 0];
+  for (const k of state.files) { g[groomScore(k)]++; b[brideScore(k)]++; }
+  return { groom: g, bride: b };
+}
+
 /* ---------- 로컬 영속화 ---------- */
 function persistMine()    { localStorage.setItem(`selpic:mine:${state.role}`,    JSON.stringify(Object.fromEntries(state.mine))); }
 function persistPending() { localStorage.setItem(`selpic:pending:${state.role}`, JSON.stringify(Object.fromEntries(state.pending))); }

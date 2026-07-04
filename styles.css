@@ -84,8 +84,30 @@ input, select { font: inherit; }
   padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--panel-2); color: var(--text);
 }
-#syncBtn, #addBtn { padding: 7px 11px; border-radius: 8px; border: 1px solid var(--line);
+#syncBtn, #addBtn, #statsBtn { padding: 7px 11px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--panel-2); color: var(--text); }
+#statsBtn.active { border-color: var(--accent); color: var(--accent); }
+
+/* ===== 별점 통계 패널 ===== */
+#statsPanel {
+  position: fixed; right: 8px; top: 54px; z-index: 30; width: 208px;
+  background: rgba(18,20,24,.92); border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 10px; color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.45);
+}
+.stats-title { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+.stats-role { margin-top: 7px; }
+.stats-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
+.stats-bars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; align-items: end; }
+.stats-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.stats-count { font-size: 10px; color: var(--muted); line-height: 1; }
+.stats-bar-wrap { height: 30px; width: 100%; display: flex; align-items: flex-end; }
+.stats-bar { width: 100%; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+.stats-bar.bride { background: var(--accent-2); }
+.stats-star { font-size: 9px; color: var(--muted); line-height: 1; }
+@media (max-width: 640px) {
+  #statsPanel { right: 6px; width: 166px; padding: 6px 8px; }   /* top은 JS가 상단바 높이에 맞춰 설정 */
+  .stats-bar-wrap { height: 24px; }
+}
 #main { flex: 1; overflow: auto; position: relative; }
 .statusbar { height: 24px; padding: 2px 16px; background: var(--panel);
   border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
