@@ -80,3 +80,42 @@ function json_(obj) {
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+// 파일명 정규화(앱과 동일): NFC + 소문자 + .jpeg/.JPG → .jpg
+function canonKey_(name) {
+  return String(name).normalize('NFC').toLowerCase().replace(/\.jpe?g$/, '.jpg');
+}
+
+/**
+ * 일회용 정리: 대소문자·확장자만 다른 중복 행(NT..jpg / nt..jpg 등)을 정규화 키로 병합하고
+ * 중복 행을 제거한다. Apps Script 편집기에서 함수 목록에서 dedupe 선택 → 실행(▶).
+ * (실행 전 시트 탭을 복제해 백업해두면 안전)
+ */
+function dedupe() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sh = sheet_();
+    var data = sh.getDataRange().getValues();
+    var merged = {}, order = [];
+    for (var i = 1; i < data.length; i++) {
+      var filename = data[i][0];
+      if (!filename) continue;
+      var k = canonKey_(String(filename));
+      if (!merged[k]) { merged[k] = { groom: 0, bride: 0 }; order.push(k); }
+      merged[k].groom = Math.max(merged[k].groom, Number(data[i][1]) || 0);
+      merged[k].bride = Math.max(merged[k].bride, Number(data[i][2]) || 0);   // 같은 사진의 점수는 큰 값 채택
+    }
+    var out = [['filename', 'groom', 'bride', 'total', 'updatedAt']];
+    var now = new Date().toISOString();
+    for (var j = 0; j < order.length; j++) {
+      var g = merged[order[j]].groom, b = merged[order[j]].bride;
+      out.push([order[j], g, b, g + b, now]);
+    }
+    sh.clearContents();
+    sh.getRange(1, 1, out.length, 5).setValues(out);
+    return '정리 완료: ' + (data.length - 1) + '행 → ' + (out.length - 1) + '행';
+  } finally {
+    lock.releaseLock();
+  }
+}
