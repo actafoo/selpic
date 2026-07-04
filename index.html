@@ -88,5 +88,11 @@
 </section>
 
 <script type="module" src="src/app.js"></script>
+<script>
+  // 서비스워커 등록: 이후 업데이트를 브라우저 캐시 없이 항상 최신으로 받게 함
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
 </body>
 </html>
