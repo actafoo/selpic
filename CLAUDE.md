@@ -45,10 +45,16 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
 - **동기화**: `src/sync.js` 는 **백엔드 어댑터** 위에서 pull/push 타이밍만 관리(교체 가능).
   `flush`는 **겹침 방지(flushing 가드) + 100장 청크(PUSH_CHUNK)** 로 보내고, 각 청크 성공 시에만 큐에서 제거.
   `pushChunked(b, role, items, onProgress)` 는 복구 재업로드용(큰 목록을 청크로 순차 전송).
+  visibilitychange/online/pagehide 때 즉시 flush(iOS 백그라운드 타이머 정지 대응).
   어댑터 인터페이스: `pull()`, `push(role, items)`, 선택적 `subscribe(onRows)`.
   현재 어댑터: `src/backends/sheets-backend.js`(구글 시트, subscribe 없음 → 폴링).
+- **자기치유(유실 자동 복구)**: `ratings.applyRemote`가 폴링 때마다 "내 로컬 확정 점수(mine>0)인데
+  시트에 없음(0)"인 항목을 pending에 자동 재등록 → 다음 flush로 복구. 값이 다른 경우(같은 역할
+  다른 기기)는 건드리지 않음(핑퐁 방지). 상단바 `#pendState`가 `⏳ 저장 대기 n / ✓ 저장됨` 표시.
 - **로컬 파일**: `src/fs.js` — 폴더 선택, jpg 나열(자연 정렬), 이미지 lazy 로드(오브젝트 URL LRU),
-  폴더 핸들 IndexedDB 저장/복원. 폴백 `useFileList`.
+  폴더 핸들 IndexedDB 저장/복원. 폴백 `useFileList`. **썸네일**: `getThumbURL`/`peekThumbURL` —
+  320px 축소본을 만들어 캐시(동시 생성 3개 제한). 그리드는 반드시 썸네일 사용(원본 디코드는
+  1000장+에서 스크롤 멈춤).
 - **UI**: `src/app.js`(오케스트레이터: 화면전환/툴바/필터/뷰 라우팅/통계·사진추가 배선) + 뷰 모듈.
   각 뷰 모듈은 `render(root)` 후 `{ update, dispose }` 를 반환한다. 스토어 변경 시 `update()`,
   뷰 전환 시 `dispose()` 후 재렌더. DOM 헬퍼·별점은 `src/ui-common.js`.
@@ -61,10 +67,10 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
 
 | 파일 | 역할 |
 |---|---|
-| `src/ui-rate.js` | 1장 모드. 키보드(←→ / 1~5 / 0), 확대(휠·핀치·드래그·더블클릭·버튼·+/-/f), 전체화면(⤢), **스와이프로 넘기기(터치)** |
-| `src/ui-grid.js` | 썸네일 그리드. IntersectionObserver 지연 로딩, 점수/합계 뱃지 |
+| `src/ui-rate.js` | 1장 모드. 키보드(←→ / 1~5 / 0), 확대(휠·핀치·드래그·더블클릭·버튼·+/-/f), 전체화면(⤢), **스와이프로 넘기기(터치)**. 이웃 4장 미리 디코드 + 썸네일 우선 표시 + 150ms 넘으면 스피너 |
+| `src/ui-grid.js` | 썸네일 그리드(320px 축소본). IntersectionObserver 지연 로딩, 점수/합계 뱃지 |
 | `src/ui-compare.js` | 2~4장 나란히 비교 |
-| `src/ui-stats.js` | 별점 분포 통계 패널(신랑·신부 1~5점 장수·평균, 📊 토글, 상단바 아래 고정) |
+| `src/ui-stats.js` | 별점 분포 통계 패널(신랑·신부 1~5점 장수·평균, 📊 토글, 상단바 아래 고정). **모바일은 기본 숨김**(사진을 가림), 패널 탭하면 닫힘 |
 | `src/export.js` | 필터된 목록을 txt(원래 파일명)·csv(filename,groom,bride,total)로 저장 |
 
 필터(app.js↔ratings.navList): **내 점수/상대 점수** 각각 정확·이상(ge)·매김·미평가 + **합계≥**·합계순.
@@ -92,6 +98,12 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
   `{ok:true}` 확인, 실패면 throw**(→ 큐 유지·재전송; push는 멱등이라 재전송 안전). flush는 **flushing
   가드 + PUSH_CHUNK(100) 청크**. 유실분은 `selpic:mine:<role>`(안 지워짐)에서 접속 화면 복구 버튼으로
   재업로드. (검증: test/ui-verify.mjs [복구])
+  **서버측 원인도 제거(2026-07-05)**: 예전 doPost는 항목마다 setValue/setFormula(청크 100장 =
+  셀 API 300번, 수십 초)라 락이 밀렸다 → **일괄 읽기 1번 + setValues 일괄 쓰기 1번**으로 재작성.
+  Code.gs 수정 시 이 구조를 절대 되돌리지 말 것. 또한 클라이언트 **자기치유**(applyRemote가
+  시트에 없는 내 점수를 자동 재큐잉)로 어떤 경로의 유실도 폴링 주기 안에 복구된다.
+  (검증: test/verify.mjs [10]) ⚠️ Code.gs 변경은 자동 배포 안 됨 — Apps Script 편집기에서
+  붙여넣고 "배포 관리 → 수정 → 새 버전"으로 수동 재배포해야 반영(URL은 유지됨).
 - **화면 전환**: `hidden` 속성만으로는 안 됨 — `display`를 지정하는 CSS가 UA의 `[hidden]{display:none}`을
   덮어쓴다. `styles.css`에 `[hidden]{display:none !important}` 유지.
 - **상대 점수 미갱신**: 브라우저가 GET 응답을 캐시 → `sheets-backend.pull()`에 캐시버스터 쿼리 +
@@ -102,6 +114,10 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
   pointerdown으로 팬 시작 안 함(`e.target.closest('.zoom-bar')` 가드).
 - **모바일 페이지 전체 확대**: iOS는 `user-scalable=no`를 무시 → `styles.css` `* { touch-action: pan-y }`
   + `.stage{touch-action:none}` + `gesturestart` preventDefault로 페이지 핀치·더블탭 확대 차단(사진만 확대).
+- **iOS 사파리 100vh**: 하단 툴바 뒤 영역까지 포함해 별점 바가 화면 밖으로 밀림 →
+  `height:100vh; height:100dvh;` 이중 선언(+ `viewport-fit=cover`, statusbar에 safe-area 패딩) 유지.
+- **1000장+ 그리드 버퍼링**: 썸네일 없이 원본(수천만 화소)을 셀마다 디코드하면 스크롤이 멈춤 →
+  그리드는 `fs.getThumbURL`(320px, 동시 3개 제한)만 사용. (검증: test/ui-verify.mjs [대량] 1400장)
 - **배포 반영 착시**: GitHub Pages 빌드가 느릴 때가 있음 + 브라우저 캐시. "라이브"라 말하기 전
   `gh api repos/OWNER/REPO/pages/builds/latest`로 `built` 확인하고, 라이브 파일을 `?x=rand`로 grep해 검증.
 - **같은 사진이 2행으로 분리(파일명 불일치)**: 기기마다 확장자·대소문자·유니코드 정규화가 달라

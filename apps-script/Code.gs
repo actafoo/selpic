@@ -39,34 +39,51 @@ function doGet() {
 }
 
 // 배치 점수 기록: body = {role:'groom'|'bride', items:[{filename, score}, ...]}
+//
+// ⚠️ 반드시 '일괄 읽기 1번 + 일괄 쓰기 1번'을 유지할 것.
+// 예전 버전은 항목마다 setValue/setFormula를 호출(100장 청크 = 셀 API 300번, 수십 초)해서
+// 락 타임아웃·6분 초과로 실패했고, 이것이 2026-07 대량 점수 유실 사고의 서버측 원인이었다.
 function doPost(e) {
   var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  try {
+    lock.waitLock(30000);
+  } catch (err) {
+    return json_({ ok: false, error: '락 대기 시간 초과(잠시 후 자동 재시도됩니다)' });
+  }
   try {
     var body  = JSON.parse(e.postData.contents);
     var role  = body.role === 'bride' ? 'bride' : 'groom';
-    var col   = role === 'groom' ? 2 : 3;   // B=groom, C=bride
+    var ci    = role === 'groom' ? 1 : 2;   // 행 배열 인덱스: 1=groom, 2=bride
     var items = body.items || [];
 
     var sh   = sheet_();
     var data = sh.getDataRange().getValues();
-    var rowOf = {};                          // filename -> 1-based row
-    for (var i = 1; i < data.length; i++) rowOf[data[i][0]] = i + 1;
+    var rowOf = {};                          // 정규화 키 -> data 인덱스 (기기 간 확장자·대소문자 차이 흡수)
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0]) rowOf[canonKey_(String(data[i][0]))] = i;
+    }
 
     var now = new Date().toISOString();
     for (var k = 0; k < items.length; k++) {
-      var name  = String(items[k].filename);
+      var name  = canonKey_(String(items[k].filename || ''));
+      if (!name) continue;
       var score = Number(items[k].score) || 0;
-      var row   = rowOf[name];
-      if (!row) {                            // 새 파일 → 행 추가
-        sh.appendRow([name, '', '', '', now]);
-        row = sh.getLastRow();
-        rowOf[name] = row;
+      var idx = rowOf[name];
+      if (idx == null) {                     // 새 파일 → 메모리에서 행 추가
+        var r = [name, 0, 0, 0, now];
+        r[ci] = score; r[3] = score;
+        rowOf[name] = data.length;
+        data.push(r);
+      } else {
+        var row = data[idx];
+        row[ci] = score;
+        row[1] = Number(row[1]) || 0;
+        row[2] = Number(row[2]) || 0;
+        row[3] = row[1] + row[2];
+        row[4] = now;
       }
-      sh.getRange(row, col).setValue(score);
-      sh.getRange(row, 4).setFormula('=B' + row + '+C' + row);
-      sh.getRange(row, 5).setValue(now);
     }
+    if (data.length > 1) sh.getRange(2, 1, data.length - 1, 5).setValues(data.slice(1));
     return json_({ ok: true, count: items.length });
   } catch (err) {
     return json_({ ok: false, error: String(err) });

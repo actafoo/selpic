@@ -96,6 +96,66 @@ export async function getFile(name) {
   return ent.getFile ? await ent.getFile() : ent;
 }
 
+/* ---------- 썸네일 ----------
+   그리드가 원본(수천만 화소)을 매 셀마다 디코드하면 1000장+에서 스크롤이 멈춘다.
+   → 320px 축소본을 만들어 캐시하고, 동시 생성 수를 제한해 모바일 과부하를 막는다. */
+const THUMB = 320;                 // 썸네일 최대 변(px)
+const THUMB_CONC = 3;              // 동시 디코드 수(아이폰 메모리·발열 보호)
+const thumbCache = new Map();      // key -> objectURL(작은 jpg, ~20KB)
+const thumbJobs = new Map();       // key -> 진행 중 Promise
+const thumbQueue = [];
+let thumbActive = 0;
+
+export function peekThumbURL(name) { return thumbCache.get(name) || null; }   // 이미 만든 것만(동기)
+export function getThumbURL(name) {
+  if (thumbCache.has(name)) return Promise.resolve(thumbCache.get(name));
+  let p = thumbJobs.get(name);
+  if (!p) {
+    p = new Promise((resolve) => { thumbQueue.push({ name, resolve }); });
+    thumbJobs.set(name, p);
+    pumpThumbs();
+  }
+  return p;
+}
+function pumpThumbs() {
+  while (thumbActive < THUMB_CONC && thumbQueue.length) {
+    const { name, resolve } = thumbQueue.shift();
+    thumbActive++;
+    makeThumb(name)
+      .then((u) => { if (u) thumbCache.set(name, u); resolve(u); })
+      .catch(() => resolve(null))
+      .finally(() => { thumbActive--; thumbJobs.delete(name); pumpThumbs(); });
+  }
+}
+async function makeThumb(name) {
+  const ent = fileMap.get(name);
+  if (!ent) return null;
+  const file = ent.getFile ? await ent.getFile() : ent;
+  let src = null, w = 0, h = 0, tmpUrl = null;
+  try {                            // 지원 브라우저는 디코드 단계에서 곧바로 축소(빠르고 메모리 적음)
+    src = await createImageBitmap(file, { resizeWidth: THUMB, resizeQuality: 'low' });
+  } catch {
+    try { src = await createImageBitmap(file); } catch {}
+  }
+  if (src) { w = src.width; h = src.height; }
+  else {                           // createImageBitmap 미지원(구형 사파리): <img>로 디코드
+    tmpUrl = URL.createObjectURL(file);
+    src = new Image();
+    src.src = tmpUrl;
+    try { await src.decode(); } catch { URL.revokeObjectURL(tmpUrl); return null; }
+    w = src.naturalWidth; h = src.naturalHeight;
+  }
+  const k = Math.min(1, THUMB / Math.max(w, h, 1));
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(w * k));
+  cv.height = Math.max(1, Math.round(h * k));
+  cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+  if (src.close) src.close();
+  if (tmpUrl) URL.revokeObjectURL(tmpUrl);
+  const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.72));
+  return blob ? URL.createObjectURL(blob) : null;
+}
+
 /* ---------- IndexedDB (폴더 핸들 저장) ---------- */
 const DB = 'selpic', STORE = 'handles';
 function openDB() {

@@ -20,7 +20,10 @@ export function renderGrid(root) {
       const cell = en.target;
       if (cell.dataset.loaded) continue;
       cell.dataset.loaded = '1';
-      fs.getURL(cell.dataset.name).then(u => { if (u) cell.querySelector('img').src = u; });
+      // 원본 대신 320px 썸네일(원본 디코드는 1000장+에서 스크롤을 멈추게 한다)
+      fs.getThumbURL(cell.dataset.name)
+        .then(u => u || fs.getURL(cell.dataset.name))     // 썸네일 실패 시 원본 폴백
+        .then(u => { if (u) cell.querySelector('img').src = u; });
       io.unobserve(cell);
     }
   }, { root: null, rootMargin: '500px' });
@@ -34,7 +37,7 @@ export function renderGrid(root) {
       onclick: (e) => { e.stopPropagation(); toggleCompare(name); cmp.classList.toggle('on', state.compare.has(name)); },
     }, '⚖');
     const cell = el('div', { class: 'cell', 'data-name': name },
-      el('img', { class: 'thumb', alt: '' }),
+      el('img', { class: 'thumb', alt: '', decoding: 'async' }),
       el('div', { class: 'cell-badges' }, my, tot),
       cmp,
       el('div', { class: 'cell-name' }, nameOf(name)),

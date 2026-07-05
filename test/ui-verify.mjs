@@ -85,7 +85,8 @@ try {
   ok(!(await page.locator('#connect').isVisible()), '접속 화면 숨김(앱만 표시)');
   ok((await page.textContent('#roleBadge')).includes('신랑'), '역할 배지 = 신랑');
   eq(await page.textContent('#progress'), '0 / 4 매김', '진행률 0/4');
-  ok(await page.getAttribute('.photo', 'src'), '사진 blob 로드됨');
+  await page.waitForFunction(() => document.querySelector('.photo')?.src, null, { timeout: 5000 });  // 디코드 후 교체(비동기)
+  ok(true, '사진 blob 로드됨');
 
   // 세로로 긴 사진이 화면 안에 '한눈에' 들어오는지 (윗부분만 보이는 버그 방지)
   if (bigPortrait) {
@@ -152,6 +153,7 @@ try {
   await page.click('#syncBtn');                            // flush + pollNow 즉시 실행
   await sleep(600);
   eq(sheet.get(firstName), { groom: 5, bride: 0 }, 'mock 시트에 신랑 점수 저장');
+  ok((await page.textContent('#pendState')).includes('저장됨'), '저장 상태 표시(✓ 저장됨, 대기 0)');
 
   /* 5) 신부(다른 기기)가 점수 추가 → 신랑 화면에 합계 반영 */
   console.log('\n[5] 신부 점수 → 합계 결합');
@@ -204,6 +206,38 @@ try {
   eq(sheet.get('rec_2.jpg'), { groom: 0, bride: 5 }, '복구 재업로드 → mock 시트에 신부 점수 반영');
   eq(sheet.get('rec_1.jpg')?.bride, 3, '복구: 다른 항목도 반영(rec_1=3)');
   await rp.close();
+
+  /* 6c) 대량(1400장): 진입·그리드 렌더·끝쪽 셀 지연 로딩이 무리 없이 도는지 */
+  console.log('\n[대량] 1400장 로드·그리드');
+  const bigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'selpic-big-'));
+  for (let i = 0; i < 1400; i++) fs.writeFileSync(path.join(bigDir, `W${String(i).padStart(4, '0')}.jpg`), TINY_JPEG);
+  const bp = await ctx.newPage();
+  bp.on('pageerror', e => errors.push(String(e)));
+  bp.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  await bp.goto(APP_URL);
+  await bp.click('.role-btn[data-role="groom"]');
+  await bp.$eval('#urlInput', (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, MOCK_URL);
+  let t0 = Date.now();
+  await bp.setInputFiles('#folderFallback', bigDir);
+  await bp.waitForSelector('#app:not([hidden])', { timeout: 15000 });
+  await bp.waitForFunction(() => document.querySelector('.photo')?.src, null, { timeout: 15000 });
+  const tEnter = Date.now() - t0;
+  ok((await bp.textContent('#progress')).includes('/ 1400'), '1400장 인식');
+  ok(tEnter < 8000, `진입+첫 사진 표시 ${tEnter}ms (<8s)`);
+  t0 = Date.now();
+  await bp.click('.view-btn[data-view="grid"]');
+  await bp.waitForSelector('.grid .cell');
+  const tGrid = Date.now() - t0;
+  eq(await bp.locator('.grid .cell[data-name]').count(), 1400, '그리드 1400셀');
+  ok(tGrid < 5000, `그리드 렌더 ${tGrid}ms (<5s)`);
+  await bp.evaluate(() => { const m = document.querySelector('#main'); m.scrollTop = m.scrollHeight; });  // 맨 끝으로 점프
+  await bp.waitForFunction(() => {
+    const cells = document.querySelectorAll('.grid .cell');
+    return cells[cells.length - 1]?.querySelector('img')?.src;
+  }, null, { timeout: 8000 });
+  ok(true, '끝쪽 셀도 썸네일 지연 로딩 동작');
+  await bp.close();
+  fs.rmSync(bigDir, { recursive: true, force: true });
 
   /* 7) 콘솔 에러 없음 */
   console.log('\n[7] 콘솔 에러');

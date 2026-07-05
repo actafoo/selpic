@@ -22,7 +22,7 @@ const mock = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
   if (req.method === 'GET') { res.end(JSON.stringify([...sheet].map(([filename, v]) => ({ filename, ...v })))); return; }
-  let b = ''; req.on('data', c => b += c); req.on('end', () => { const { role, items } = JSON.parse(b); for (const it of items) { const c = sheet.get(it.filename) || { groom: 0, bride: 0 }; c[role] = it.score; sheet.set(it.filename, c); } res.end('{}'); });
+  let b = ''; req.on('data', c => b += c); req.on('end', () => { const { role, items } = JSON.parse(b); for (const it of items) { const c = sheet.get(it.filename) || { groom: 0, bride: 0 }; c[role] = it.score; sheet.set(it.filename, c); } res.end(JSON.stringify({ ok: true })); });
 });
 await new Promise(r => mock.listen(0, r));
 const MOCK_URL = `http://localhost:${mock.address().port}/exec`;
@@ -66,7 +66,8 @@ try {
   await page.waitForSelector('#app:not([hidden])', { timeout: 5000 });
   ok(true, '다중 파일 선택으로 앱 진입');
   ok((await page.textContent('#progress')).includes('/ 3'), '사진 3장 로드');
-  ok(await page.getAttribute('.photo', 'src'), '사진 표시됨');
+  await page.waitForFunction(() => document.querySelector('.photo')?.src, null, { timeout: 5000 });  // 디코드 후 교체(비동기)
+  ok(true, '사진 표시됨');
 
   // 모바일 레이아웃(390px): 오버플로 없음 + 주요 버튼 보임
   ok(await page.locator('.view-btn').first().isVisible(), '뷰 버튼 보임');

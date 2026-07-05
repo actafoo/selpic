@@ -64,20 +64,41 @@ export function applyRemote(rows) {
     cur.bride = Math.max(cur.bride, Number(r.bride) || 0);
     m.set(k, cur);
   }
+  const remoteChanged = !sameRemote(state.remote, m);
   state.remote = m;
+  let pendingChanged = false;
   // 시트에 내 점수가 이미 반영됐으면 pending에서 제거
   for (const [key, s] of [...state.pending]) {
     const saved = state.role === 'groom' ? m.get(key)?.groom : m.get(key)?.bride;
-    if (saved === s) state.pending.delete(key);
+    if (saved === s) { state.pending.delete(key); pendingChanged = true; }
   }
-  persistPending();
-  emit();
+  // 자기치유: 내가 매긴 점수(mine)가 시트에 아예 없으면(전송 실패·시트 유실) 자동으로 재전송 큐에 올린다.
+  // 값이 서로 다른 경우(다른 기기에서 같은 역할로 매김)는 건드리지 않는다 — '없음(0)'만 복구.
+  for (const [key, s] of state.mine) {
+    if (s > 0 && !state.pending.has(key)) {
+      const saved = state.role === 'groom' ? (m.get(key)?.groom || 0) : (m.get(key)?.bride || 0);
+      if (saved === 0) { state.pending.set(key, s); pendingChanged = true; }
+    }
+  }
+  if (pendingChanged) persistPending();
+  if (remoteChanged || pendingChanged) emit();   // 변화 없으면 emit 생략(1000장+ 그리드 불필요 repaint 방지)
+}
+function sameRemote(a, b) {
+  if (a.size !== b.size) return false;
+  for (const [k, v] of a) {
+    const w = b.get(k);
+    if (!w || w.groom !== v.groom || w.bride !== v.bride) return false;
+  }
+  return true;
 }
 // 시트로는 정규화 키를 보낸다(양쪽 기기가 같은 키로 씀)
 export function getPending() { return [...state.pending].map(([filename, score]) => ({ filename, score })); }
 export function markFlushed(items) {
-  for (const it of items) if (state.pending.get(it.filename) === it.score) state.pending.delete(it.filename);
-  persistPending();
+  let changed = false;
+  for (const it of items) {
+    if (state.pending.get(it.filename) === it.score) { state.pending.delete(it.filename); changed = true; }
+  }
+  if (changed) { persistPending(); emit(); }   // '저장 대기 n' 표시가 전송 완료 즉시 사라지게
 }
 
 /* ---------- 비교 선택 ---------- */

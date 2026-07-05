@@ -1,5 +1,5 @@
 // 진입점: 접속 화면 → 앱 화면 전환, 툴바 배선, 뷰 라우팅.
-import { state, subscribe, emit, loadPersisted, counts } from './ratings.js';
+import { state, subscribe, emit, loadPersisted, counts, canon } from './ratings.js';
 import * as fs from './fs.js';
 import { startSync, pollNow, flush, setBackend, pushChunked } from './sync.js';
 import { createSheetsBackend } from './backends/sheets-backend.js';
@@ -74,7 +74,7 @@ async function onRecover() {
   const url = $('#urlInput').value.trim() || DEFAULT_SHEET_URL;
   if (!url) { $('#recoverMsg').textContent = '시트 URL이 없어요.'; return; }
   const items = Object.entries(savedMine(role))
-    .map(([filename, score]) => ({ filename, score: Number(score) || 0 }));
+    .map(([filename, score]) => ({ filename: canon(filename), score: Number(score) || 0 }));  // 예전 데이터도 정규화 키로
   if (!items.length) { $('#recoverMsg').textContent = '올릴 점수가 없어요.'; return; }
   const btn = $('#recoverBtn'), msg = $('#recoverMsg');
   btn.disabled = true;
@@ -148,15 +148,19 @@ function enterApp() {
   const positionStats = () => { statsPanel.style.top = (($('.topbar')?.offsetHeight || 48) + 6) + 'px'; };
   positionStats();
   window.addEventListener('resize', positionStats);
-  const showStats = localStorage.getItem('selpic:stats') !== '0';
+  // 모바일은 패널이 사진 위에 떠서 가리므로 기본 숨김(📊로 켜기), 데스크톱은 기본 표시
+  const savedStats = localStorage.getItem('selpic:stats');
+  const showStats = savedStats != null ? savedStats !== '0' : !matchMedia('(max-width: 640px)').matches;
   statsPanel.hidden = !showStats;
   $('#statsBtn').classList.toggle('active', showStats);
-  $('#statsBtn').onclick = () => {
-    const on = statsPanel.hidden;
+  const setStats = (on) => {
     statsPanel.hidden = !on;
     $('#statsBtn').classList.toggle('active', on);
     localStorage.setItem('selpic:stats', on ? '1' : '0');
   };
+  $('#statsBtn').onclick = () => setStats(statsPanel.hidden);
+  statsPanel.onclick = () => setStats(false);               // 사진을 가리면 패널을 탭해 바로 닫기
+  statsPanel.title = '탭하면 닫혀요';
 
   subscribe(onStore);
   // 백엔드 교체 지점: 지금은 구글 시트. 배포 버전에선 createSupabaseBackend 등으로 교체.
@@ -192,6 +196,11 @@ function updateTopbar() {
   const c = counts();
   $('#progress').textContent = `${c.rated} / ${c.total} 매김`;
   $('#cmpCount').textContent = state.compare.size ? ` (${state.compare.size})` : '';
+  // 저장 상태 표시: 시트로 못 보낸 점수가 있으면 경고색으로 개수를 보여준다(유실 사고 후 가시화)
+  const p = state.pending.size;
+  const ps = $('#pendState');
+  ps.textContent = p ? `⏳ 저장 대기 ${p}` : (c.rated ? '✓ 저장됨' : '');
+  ps.classList.toggle('warn', p > 0);
 }
 
 let statusT = null;

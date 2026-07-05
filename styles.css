@@ -28,7 +28,8 @@ input, select { font: inherit; }
 
 /* ===== 접속 화면 ===== */
 .connect {
-  min-height: 100vh; display: grid; place-items: center; padding: 24px;
+  min-height: 100vh; min-height: 100dvh;   /* iOS 사파리: 하단 툴바 제외한 실제 보이는 높이 */
+  display: grid; place-items: center; padding: 24px;
 }
 .connect-card {
   width: min(460px, 100%);
@@ -69,7 +70,8 @@ input, select { font: inherit; }
   color: var(--muted); font-size: 12.5px; }
 
 /* ===== 앱 레이아웃 ===== */
-#app { display: flex; flex-direction: column; height: 100vh; }
+/* iOS 사파리에서 100vh는 하단 툴바 뒤까지 포함해 별점 바가 화면 밖으로 밀린다 → dvh 사용 */
+#app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
 .topbar {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
@@ -77,6 +79,8 @@ input, select { font: inherit; }
 .tb-left { display: flex; align-items: center; gap: 12px; }
 .role-badge { font-weight: 700; }
 .progress { color: var(--muted); font-size: 13px; }
+.pend { font-size: 12px; color: var(--hi); }
+.pend.warn { color: var(--accent); font-weight: 700; }
 .tb-views { display: flex; gap: 6px; margin-left: auto; }
 .view-btn {
   padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line);
@@ -115,8 +119,9 @@ input, select { font: inherit; }
   .stats-bar-wrap { height: 24px; }
 }
 #main { flex: 1; overflow: auto; position: relative; }
-.statusbar { height: 24px; padding: 2px 16px; background: var(--panel);
-  border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.statusbar { min-height: 24px; padding: 2px 16px; background: var(--panel);
+  border-top: 1px solid var(--line); color: var(--muted); font-size: 12px;
+  padding-bottom: calc(2px + env(safe-area-inset-bottom)); }   /* 아이폰 홈 인디케이터 회피 */
 
 .empty { display: grid; place-items: center; height: 100%; color: var(--muted); padding: 40px; text-align: center; }
 
@@ -135,6 +140,13 @@ input, select { font: inherit; }
   max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px;
   transform-origin: center center; will-change: transform; user-select: none; -webkit-user-drag: none;
 }
+/* 원본 디코드가 오래 걸릴 때(먼 사진으로 점프 등)만 좌상단에 작은 스피너 */
+.stage.loading::after {
+  content: ''; position: absolute; top: 12px; left: 12px; width: 20px; height: 20px;
+  border: 3px solid rgba(255,255,255,.25); border-top-color: #fff; border-radius: 50%;
+  animation: selpic-spin .8s linear infinite; pointer-events: none;
+}
+@keyframes selpic-spin { to { transform: rotate(360deg); } }
 .zoom-bar {
   position: absolute; bottom: 10px; right: 12px; z-index: 2;
   display: flex; align-items: center; gap: 6px;

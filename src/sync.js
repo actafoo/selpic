@@ -8,7 +8,7 @@
 import { state, applyRemote, getPending, markFlushed } from './ratings.js';
 
 let backend = null;
-let pollTimer = null, flushTimer = null, unsub = null;
+let pollTimer = null, flushTimer = null, unsub = null, onWake = null, onOnline = null;
 let flushing = false;                       // 중복 flush 방지(3초 타이머가 이전 flush 끝나기 전에 또 쏘던 문제)
 const POLL_MS = 5000, FLUSH_MS = 3000;
 export const PUSH_CHUNK = 100;              // 한 요청에 너무 많이 보내면 서버(Apps Script)가 6분·락 한도로 죽는다 → 쪼갬
@@ -35,13 +35,24 @@ export function startSync() {
     pollTimer = setInterval(pollNow, POLL_MS);              // 폴링 폴백(시트)
   }
   flushTimer = setInterval(flush, FLUSH_MS);
+  // iOS 사파리·백그라운드 탭은 타이머가 멈춘다 → 화면 복귀/이탈·온라인 복귀 순간에 즉시 밀어넣기
+  onWake = () => {
+    if (document.visibilityState === 'visible') { pollNow(); flush(); }
+    else { flush(); }                                       // 백그라운드 진입 직전 마지막 전송 시도
+  };
+  document.addEventListener('visibilitychange', onWake);
+  onOnline = () => flush();
+  window.addEventListener('online', onOnline);
+  window.addEventListener('pagehide', onOnline);            // 닫기 직전 최선 노력(실패해도 pending은 localStorage에 남음)
   window.addEventListener('beforeunload', () => { try { flush(); } catch {} });
 }
 
 export function stopSync() {
   clearInterval(pollTimer); clearInterval(flushTimer);
   if (unsub) unsub();
-  pollTimer = flushTimer = unsub = null;
+  if (onWake) document.removeEventListener('visibilitychange', onWake);
+  if (onOnline) { window.removeEventListener('online', onOnline); window.removeEventListener('pagehide', onOnline); }
+  pollTimer = flushTimer = unsub = onWake = onOnline = null;
 }
 
 export async function pollNow() {

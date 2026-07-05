@@ -163,6 +163,19 @@ fsmod.useFileList([{ name: 'NT0612_4605.JPEG' }]);
 eq(state.files[0], R.canon('NT0612_4605.jpg'), 'fs가 정규화 키 사용');
 eq(R.nameOf(state.files[0]), 'NT0612_4605.JPEG', '표시는 원래 파일명 유지');
 
+/* ===== 10) 자기치유: 시트에서 사라진 내 점수 자동 재큐잉 ===== */
+console.log('\n[10] 자기치유(시트 유실 자동 복구)');
+state.role = 'groom';
+state.mine = new Map([['lost_1.jpg', 5], ['ok_1.jpg', 4], ['unrated_0.jpg', 0]]);
+state.pending = new Map();
+R.applyRemote([{ filename: 'ok_1.jpg', groom: 4, bride: 0 }]);   // lost_1이 시트에 없음(유실 상황)
+eq(state.pending.get('lost_1.jpg'), 5, '시트에 없는 내 점수 → pending 자동 재등록');
+eq(state.pending.has('ok_1.jpg'), false, '시트에 반영된 점수는 재전송 안 함');
+eq(state.pending.has('unrated_0.jpg'), false, '0점(미평가)은 재전송 안 함');
+await sync.flush();
+eq(sheet.get('lost_1.jpg'), { groom: 5, bride: 0 }, 'flush로 시트에 자동 복구');
+eq([...state.pending].length, 0, '복구 후 pending 비움');
+
 /* ---------- 결과 ---------- */
 console.log(`\n결과: ${pass} passed, ${fail} failed`);
 server.close();

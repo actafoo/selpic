@@ -7,7 +7,7 @@ import * as fs from './fs.js';
 const MAX_ZOOM = 8;
 
 export function renderRate(root) {
-  const img   = el('img', { class: 'photo', alt: '' });
+  const img   = el('img', { class: 'photo', alt: '', decoding: 'async' });
   const empty = el('div', { class: 'empty' }, '표시할 사진이 없어요. (필터를 확인해 주세요)');
   const zlabel = el('button', { class: 'zlabel', title: '화면맞춤 (f)', onclick: () => resetZoom() }, '100%');
   const fsBtn = el('button', { class: 'zbtn', title: '전체화면', onclick: () => toggleFullscreen() }, '⤢');
@@ -139,17 +139,44 @@ export function renderRate(root) {
     state.current = c;
     return c;
   }
+  let loadT = 0;
   async function loadImage(name) {
     if (name === shown) return;
     shown = name;
     resetZoom();                                        // 사진 바뀌면 확대 초기화
-    if (!name) { img.hidden = true; if (!stage.contains(empty)) stage.append(empty); return; }
+    if (!name) { img.hidden = true; img.removeAttribute('src'); stage.classList.remove('loading'); if (!stage.contains(empty)) stage.append(empty); return; }
     if (stage.contains(empty)) empty.remove();
     img.hidden = false;
+    clearTimeout(loadT);
+    loadT = setTimeout(() => { if (shown === name) stage.classList.add('loading'); }, 150);  // 오래 걸릴 때만 스피너
     const url = await fs.getURL(name);
-    if (shown === name) img.src = url || '';
-    const list = navList(), i = list.indexOf(name);     // 이웃 미리 로드
-    for (const j of [i + 1, i - 1, i + 2]) if (list[j]) fs.getURL(list[j]);
+    if (shown !== name) return;
+    const thumb = fs.peekThumbURL(name);                // 썸네일이 이미 있으면 즉시 저해상 미리보기
+    if (thumb) img.src = thumb;
+    const full = new Image();                           // 원본은 디코드가 끝난 뒤 교체(먼 사진으로 점프 시 멈춘 느낌 방지)
+    full.src = url || '';
+    try { await full.decode(); } catch {}
+    if (shown !== name) return;
+    clearTimeout(loadT);
+    stage.classList.remove('loading');
+    img.src = url || '';
+    preloadNeighbors(name);
+  }
+  const keepAlive = [];                                 // 미리 디코드한 이미지가 GC로 버려지지 않게 잠깐 붙잡기
+  function preloadNeighbors(name) {
+    const list = navList(), i = list.indexOf(name);
+    for (const j of [i + 1, i - 1, i + 2, i + 3]) {
+      const n = list[j];
+      if (!n) continue;
+      fs.getURL(n).then(u => {
+        if (!u) return;
+        const im = new Image();
+        im.src = u;
+        im.decode().catch(() => {});
+        keepAlive.push(im);
+        while (keepAlive.length > 8) keepAlive.shift();
+      });
+    }
   }
   function step(d) {
     const list = navList();
