@@ -62,7 +62,7 @@ function savedMine(role) {
   catch { return {}; }
 }
 function updateRecover(r) {
-  const n = Object.keys(savedMine(r)).length;
+  const n = Object.values(savedMine(r)).filter(s => Number(s) > 0).length;   // 실제 매긴 점수만
   $('#recoverCount').textContent = n;
   $('#recoverMsg').textContent = '';
   $('#recoverBtn').disabled = false;
@@ -74,7 +74,8 @@ async function onRecover() {
   const url = $('#urlInput').value.trim() || DEFAULT_SHEET_URL;
   if (!url) { $('#recoverMsg').textContent = '시트 URL이 없어요.'; return; }
   const items = Object.entries(savedMine(role))
-    .map(([filename, score]) => ({ filename: canon(filename), score: Number(score) || 0 }));  // 예전 데이터도 정규화 키로
+    .map(([filename, score]) => ({ filename: canon(filename), score: Number(score) || 0 }))   // 예전 데이터도 정규화 키로
+    .filter(it => it.score > 0);                       // 0(미평가)까지 올려 시트를 어지럽히지 않게
   if (!items.length) { $('#recoverMsg').textContent = '올릴 점수가 없어요.'; return; }
   const btn = $('#recoverBtn'), msg = $('#recoverMsg');
   btn.disabled = true;

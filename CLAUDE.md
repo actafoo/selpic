@@ -118,6 +118,10 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
   `height:100vh; height:100dvh;` 이중 선언(+ `viewport-fit=cover`, statusbar에 safe-area 패딩) 유지.
 - **1000장+ 그리드 버퍼링**: 썸네일 없이 원본(수천만 화소)을 셀마다 디코드하면 스크롤이 멈춤 →
   그리드는 `fs.getThumbURL`(320px, 동시 3개 제한)만 사용. (검증: test/ui-verify.mjs [대량] 1400장)
+- **미평가가 0점으로 표기(2026-07-05 회귀)**: doPost 배치쓰기 첫 버전이 새 행을 `[이름,0,0,…]`으로
+  만들고 갱신 행의 빈칸을 `Number(x)||0`으로 0으로 굳혀, 신랑만 매긴 행 600여 개의 신부 칸이
+  전부 숫자 0으로 보였음("신부가 0점 줬다" 오해). → **미평가는 반드시 빈칸('')**: 점수 0은 ''로
+  쓰고, 상대 역할 칸은 절대 건드리지 않는다. 기존 0은 `dedupe()` 실행이 빈칸으로 되돌림.
 - **배포 반영 착시**: GitHub Pages 빌드가 느릴 때가 있음 + 브라우저 캐시. "라이브"라 말하기 전
   `gh api repos/OWNER/REPO/pages/builds/latest`로 `built` 확인하고, 라이브 파일을 `?x=rand`로 grep해 검증.
 - **같은 사진이 2행으로 분리(파일명 불일치)**: 기기마다 확장자·대소문자·유니코드 정규화가 달라

@@ -68,18 +68,19 @@ function doPost(e) {
       var name  = canonKey_(String(items[k].filename || ''));
       if (!name) continue;
       var score = Number(items[k].score) || 0;
+      // ⚠️ 미평가(0)는 반드시 '빈칸'으로 쓴다. 숫자 0을 쓰면 "0점을 줬다"로 보인다
+      //    (2026-07-05 회귀: 신랑이 만든 행의 신부 칸이 전부 0으로 표기됐던 원인).
+      var cell  = score > 0 ? score : '';
       var idx = rowOf[name];
-      if (idx == null) {                     // 새 파일 → 메모리에서 행 추가
-        var r = [name, 0, 0, 0, now];
-        r[ci] = score; r[3] = score;
+      if (idx == null) {                     // 새 파일 → 메모리에서 행 추가(상대 칸은 빈칸 유지)
+        var r = [name, '', '', score, now];
+        r[ci] = cell;
         rowOf[name] = data.length;
         data.push(r);
       } else {
         var row = data[idx];
-        row[ci] = score;
-        row[1] = Number(row[1]) || 0;
-        row[2] = Number(row[2]) || 0;
-        row[3] = row[1] + row[2];
+        row[ci] = cell;                      // 다른 역할의 칸은 절대 건드리지 않는다
+        row[3] = (Number(row[1]) || 0) + (Number(row[2]) || 0);
         row[4] = now;
       }
     }
@@ -104,8 +105,9 @@ function canonKey_(name) {
 }
 
 /**
- * 일회용 정리: 대소문자·확장자만 다른 중복 행(NT..jpg / nt..jpg 등)을 정규화 키로 병합하고
- * 중복 행을 제거한다. Apps Script 편집기에서 함수 목록에서 dedupe 선택 → 실행(▶).
+ * 일회용 정리: ① 대소문자·확장자만 다른 중복 행(NT..jpg / nt..jpg 등)을 정규화 키로 병합해
+ * 중복 행을 제거하고, ② 미평가 칸에 잘못 기록된 숫자 0을 빈칸으로 되돌린다.
+ * Apps Script 편집기에서 함수 목록에서 dedupe 선택 → 실행(▶).
  * (실행 전 시트 탭을 복제해 백업해두면 안전)
  */
 function dedupe() {
@@ -127,7 +129,7 @@ function dedupe() {
     var now = new Date().toISOString();
     for (var j = 0; j < order.length; j++) {
       var g = merged[order[j]].groom, b = merged[order[j]].bride;
-      out.push([order[j], g, b, g + b, now]);
+      out.push([order[j], g > 0 ? g : '', b > 0 ? b : '', g + b, now]);   // 미평가는 빈칸
     }
     sh.clearContents();
     sh.getRange(1, 1, out.length, 5).setValues(out);
