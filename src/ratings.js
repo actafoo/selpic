@@ -134,9 +134,20 @@ export function counts() {
 }
 
 // 별점 분포: groom[0..5]/bride[0..5] (index 0 = 미평가, 1~5 = 별점별 장수)
+// 내 점수: 로컬 파일 기준(미평가 포함 전체 장수 파악). 상대 점수: 시트 전체 기준
+// (상대방 기기의 파일명이 내 로컬과 조금 달라도 시트에서 직접 집계해 0으로 뜨지 않게)
 export function ratingStats() {
+  const myRole = state.role;
   const g = [0, 0, 0, 0, 0, 0], b = [0, 0, 0, 0, 0, 0];
-  for (const k of state.files) { g[groomScore(k)]++; b[brideScore(k)]++; }
+  // 내 점수 분포: 로컬 파일 목록 기준(내가 연 파일 전체)
+  for (const k of state.files) {
+    if (myRole === 'groom') g[groomScore(k)]++; else b[brideScore(k)]++;
+  }
+  // 상대 점수 분포: 시트(state.remote) 전체 기준 — 로컬 파일 키와 무관하게 집계
+  for (const v of state.remote.values()) {
+    const score = myRole === 'groom' ? (v.bride || 0) : (v.groom || 0);
+    if (myRole === 'groom') b[score]++; else g[score]++;
+  }
   return { groom: g, bride: b };
 }
 
