@@ -187,6 +187,24 @@ try {
   await page.click('#statsBtn');
   ok(await page.locator('#statsPanel').isVisible(), '📊 토글로 다시 표시');
 
+  /* 6b) 복구: 접속 화면에서 로컬 저장 점수 재업로드 */
+  console.log('\n[복구] 접속화면에서 저장된 점수 재업로드');
+  const rp = await ctx.newPage();
+  rp.on('pageerror', e => errors.push(String(e)));
+  rp.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  const RECOVER = { 'rec_1.jpg': 3, 'rec_2.jpg': 5, 'rec_3.jpg': 2 };   // 시트엔 없고 로컬에만 남은 신부 점수
+  await rp.addInitScript(s => localStorage.setItem('selpic:mine:bride', s), JSON.stringify(RECOVER));
+  await rp.goto(APP_URL);
+  await rp.click('.role-btn[data-role="bride"]');
+  ok(await rp.locator('#recoverRow').isVisible(), '역할 선택 시 복구 행 표시');
+  eq(await rp.textContent('#recoverCount'), '3', '저장된 내 점수 개수 표시(3)');
+  await rp.$eval('#urlInput', (el, v) => { el.value = v; }, MOCK_URL);   // 실 URL 대신 mock으로
+  await rp.click('#recoverBtn');
+  await rp.waitForFunction(() => /완료/.test(document.querySelector('#recoverMsg').textContent), { timeout: 5000 });
+  eq(sheet.get('rec_2.jpg'), { groom: 0, bride: 5 }, '복구 재업로드 → mock 시트에 신부 점수 반영');
+  eq(sheet.get('rec_1.jpg')?.bride, 3, '복구: 다른 항목도 반영(rec_1=3)');
+  await rp.close();
+
   /* 7) 콘솔 에러 없음 */
   console.log('\n[7] 콘솔 에러');
   eq(errors, [], '페이지 런타임 에러 없음');

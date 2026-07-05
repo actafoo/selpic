@@ -1,7 +1,7 @@
 // 진입점: 접속 화면 → 앱 화면 전환, 툴바 배선, 뷰 라우팅.
 import { state, subscribe, emit, loadPersisted, counts } from './ratings.js';
 import * as fs from './fs.js';
-import { startSync, pollNow, flush, setBackend } from './sync.js';
+import { startSync, pollNow, flush, setBackend, pushChunked } from './sync.js';
 import { createSheetsBackend } from './backends/sheets-backend.js';
 import { renderRate } from './ui-rate.js';
 import { renderGrid } from './ui-grid.js';
@@ -32,6 +32,7 @@ function initConnect() {
   document.querySelectorAll('.role-btn').forEach(b => b.onclick = () => selectRole(b.dataset.role));
   $('#urlInput').oninput = validateConnect;
   $('#pickBtn').onclick = onPick;
+  $('#recoverBtn').onclick = onRecover;
   const onFiles = (e) => { if (e.target.files?.length) start(() => fs.useFileList(e.target.files)); };
   $('#folderFallback').onchange = onFiles;
   $('#filesFallback').onchange = onFiles;
@@ -51,6 +52,42 @@ function selectRole(r) {
   selectedRole = r;
   document.querySelectorAll('.role-btn').forEach(b => b.classList.toggle('sel', b.dataset.role === r));
   validateConnect();
+  updateRecover(r);
+}
+
+// 이 브라우저에 저장된 '내 점수'(selpic:mine:role)는 지워지지 않으므로, 폴더를 안 열어도 개수를 알 수 있다.
+// 시트가 유실됐을 때 이 원본을 다시 올려 복구하는 진입점.
+function savedMine(role) {
+  try { return JSON.parse(localStorage.getItem(`selpic:mine:${role}`) || '{}'); }
+  catch { return {}; }
+}
+function updateRecover(r) {
+  const n = Object.keys(savedMine(r)).length;
+  $('#recoverCount').textContent = n;
+  $('#recoverMsg').textContent = '';
+  $('#recoverBtn').disabled = false;
+  $('#recoverRow').hidden = n === 0;
+}
+async function onRecover() {
+  const role = selectedRole;
+  if (!role) return;
+  const url = $('#urlInput').value.trim() || DEFAULT_SHEET_URL;
+  if (!url) { $('#recoverMsg').textContent = '시트 URL이 없어요.'; return; }
+  const items = Object.entries(savedMine(role))
+    .map(([filename, score]) => ({ filename, score: Number(score) || 0 }));
+  if (!items.length) { $('#recoverMsg').textContent = '올릴 점수가 없어요.'; return; }
+  const btn = $('#recoverBtn'), msg = $('#recoverMsg');
+  btn.disabled = true;
+  try {
+    const backend = createSheetsBackend({ url });
+    await pushChunked(backend, role, items, (done, total) => {
+      msg.textContent = `올리는 중… ${done} / ${total}장 (창을 닫지 마세요)`;
+    });
+    msg.textContent = `✅ 완료! ${items.length}장을 시트에 다시 올렸어요. 잠시 후 반영됩니다.`;
+  } catch (e) {
+    msg.textContent = `⚠️ 중간에 실패했어요. 인터넷 확인 후 버튼을 다시 눌러 주세요. (${e.message || e})`;
+    btn.disabled = false;
+  }
 }
 function validateConnect() {
   $('#pickBtn').disabled = !(selectedRole && $('#urlInput').value.trim());

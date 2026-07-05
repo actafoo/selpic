@@ -43,6 +43,8 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
 - **상태/로직**: `src/ratings.js` — 단일 스토어(state) + pub/sub(subscribe/emit).
   점수 병합(myScore/otherScore/groom/bride/total), 필터·정렬(navList), 로컬 영속화(localStorage).
 - **동기화**: `src/sync.js` 는 **백엔드 어댑터** 위에서 pull/push 타이밍만 관리(교체 가능).
+  `flush`는 **겹침 방지(flushing 가드) + 100장 청크(PUSH_CHUNK)** 로 보내고, 각 청크 성공 시에만 큐에서 제거.
+  `pushChunked(b, role, items, onProgress)` 는 복구 재업로드용(큰 목록을 청크로 순차 전송).
   어댑터 인터페이스: `pull()`, `push(role, items)`, 선택적 `subscribe(onRows)`.
   현재 어댑터: `src/backends/sheets-backend.js`(구글 시트, subscribe 없음 → 폴링).
 - **로컬 파일**: `src/fs.js` — 폴더 선택, jpg 나열(자연 정렬), 이미지 lazy 로드(오브젝트 URL LRU),
@@ -68,6 +70,10 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
 필터(app.js↔ratings.navList): **내 점수/상대 점수** 각각 정확·이상(ge)·매김·미평가 + **합계≥**·합계순.
 사진 추가(＋ 버튼): 기존 선택에 덧붙이기(데스크톱 폴더 / 아이폰 다중파일).
 
+**복구(접속 화면)**: 역할 선택 시 `selpic:mine:<role>`(지워지지 않는 로컬 원본) 장수를 표시하고,
+`⤴ 시트에 다시 올리기` 버튼으로 폴더/개발자도구 없이 `pushChunked`로 재업로드(app.js `onRecover`).
+시트 유실분 복구용. push가 멱등이라 중복 눌러도 안전.
+
 ## 규칙 / 주의
 
 - 새 코드는 주변 스타일에 맞춘다: 프레임워크·빌드 도입 금지, 순수 ESM.
@@ -78,6 +84,14 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
 
 ## 과거에 겪은 버그(회귀 주의)
 
+- **대량 점수 유실(치명적, 2026-07 실사고)**: `sheets-backend.push`가 응답을 안 보고 fetch resolve만으로
+  성공 처리 → 서버 실패(LockService 락 타임아웃·6분 초과)도 성공으로 착각해 `markFlushed`가 큐를 비움 →
+  점수가 시트에 안 써진 채 영구 소실. 게다가 3초 flush 타이머가 이전 flush 끝나기 전에 또 쏴서 **큰
+  pending을 통째로 중복 전송** → 겹친 요청들이 서로 락을 못 잡아 대량 실패. 밤새 백그라운드(탭 스로틀·
+  절전·iOS 사파리)로 backlog가 쌓인 사용자가 특히 심각(신부 ~650장 소실). 수정: push는 **`res.ok` +
+  `{ok:true}` 확인, 실패면 throw**(→ 큐 유지·재전송; push는 멱등이라 재전송 안전). flush는 **flushing
+  가드 + PUSH_CHUNK(100) 청크**. 유실분은 `selpic:mine:<role>`(안 지워짐)에서 접속 화면 복구 버튼으로
+  재업로드. (검증: test/ui-verify.mjs [복구])
 - **화면 전환**: `hidden` 속성만으로는 안 됨 — `display`를 지정하는 CSS가 UA의 `[hidden]{display:none}`을
   덮어쓴다. `styles.css`에 `[hidden]{display:none !important}` 유지.
 - **상대 점수 미갱신**: 브라우저가 GET 응답을 캐시 → `sheets-backend.pull()`에 캐시버스터 쿼리 +

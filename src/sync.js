@@ -9,9 +9,22 @@ import { state, applyRemote, getPending, markFlushed } from './ratings.js';
 
 let backend = null;
 let pollTimer = null, flushTimer = null, unsub = null;
+let flushing = false;                       // 중복 flush 방지(3초 타이머가 이전 flush 끝나기 전에 또 쏘던 문제)
 const POLL_MS = 5000, FLUSH_MS = 3000;
+export const PUSH_CHUNK = 100;              // 한 요청에 너무 많이 보내면 서버(Apps Script)가 6분·락 한도로 죽는다 → 쪼갬
 
 export function setBackend(b) { backend = b; }
+
+// 큰 목록을 청크로 나눠 순차 전송(복구 재업로드 등에 재사용). onProgress(done, total).
+export async function pushChunked(b, role, items, onProgress) {
+  let done = 0;
+  for (let i = 0; i < items.length; i += PUSH_CHUNK) {
+    const chunk = items.slice(i, i + PUSH_CHUNK);
+    await b.push(role, chunk);              // 실패하면 throw → 여기서 중단(이미 보낸 청크는 서버에 남음)
+    done += chunk.length;
+    if (onProgress) onProgress(done, items.length);
+  }
+}
 
 export function startSync() {
   if (!backend) { console.warn('백엔드가 설정되지 않았어요'); return; }
@@ -38,9 +51,17 @@ export async function pollNow() {
 }
 
 export async function flush() {
-  if (!backend) return;
+  if (!backend || flushing) return;         // 이전 flush가 아직 진행 중이면 건너뜀(겹침 방지)
   const items = getPending();
   if (!items.length) return;
-  try { await backend.push(state.role, items); markFlushed(items); }
-  catch (e) { console.warn('push 실패', e); }
+  flushing = true;
+  try {
+    // 청크 단위로 보내고, 각 청크가 성공했을 때만 그만큼 큐에서 제거(중간 실패해도 나머지는 다음 주기 재시도)
+    for (let i = 0; i < items.length; i += PUSH_CHUNK) {
+      const chunk = items.slice(i, i + PUSH_CHUNK);
+      await backend.push(state.role, chunk);
+      markFlushed(chunk);
+    }
+  } catch (e) { console.warn('push 실패(다음 주기에 재시도)', e); }
+  finally { flushing = false; }
 }
