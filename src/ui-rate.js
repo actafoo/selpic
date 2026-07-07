@@ -1,6 +1,6 @@
 // 1장 모드: 큰 사진 한 장, 방향키 이동, 숫자키(1~5) 즉시 평점.
 // 확대: 휠/버튼/단축키(+,-,f)로 줌, 확대 상태에서 드래그로 이동(팬), 더블클릭 토글.
-import { state, navList, setMyScore, groomScore, brideScore, total, nameOf } from './ratings.js';
+import { state, navList, setMyScore, groomScore, brideScore, total, nameOf, isPicked, togglePick } from './ratings.js';
 import { el, clear, myStars } from './ui-common.js';
 import * as fs from './fs.js';
 
@@ -17,7 +17,9 @@ export function renderRate(root) {
     el('button', { class: 'zbtn', title: '확대 (+)', onclick: () => zoomAt(1.4, cx(), cy()) }, '+'),
     fsBtn,
   );
-  const stage = el('div', { class: 'stage' }, img, zoomBar);
+  // 최종 픽 토글: 사진 위 플로팅 버튼(전체화면에서도 보임) + 단축키 p
+  const pickFab = el('button', { class: 'pick-fab', title: '최종 픽 (p)', onclick: () => { if (state.current) togglePick(state.current); } }, '♡');
+  const stage = el('div', { class: 'stage' }, img, zoomBar, pickFab);
   // 하단은 사진을 가리지 않게 얇은 한 줄 바(평점·이동은 주로 단축키 1~5 / ←→ 사용)
   const info = el('div', { class: 'rate-info' });
   const center = el('span', { class: 'rate-center' });
@@ -96,7 +98,7 @@ export function renderRate(root) {
   const dist2 = () => { const [a, b] = [...pointers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
   const mid2  = () => { const [a, b] = [...pointers.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
   stage.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.zoom-bar')) return;                 // 줌 버튼 클릭은 제외
+    if (e.target.closest('.zoom-bar, .pick-fab')) return;      // 줌·픽 버튼 클릭은 제외(팬이 클릭을 삼키지 않게)
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {                                 // 핀치 시작
       drag = false; swipe = null; pinchDist = dist2();
@@ -191,7 +193,11 @@ export function renderRate(root) {
     const cur = resolve(list);
     loadImage(cur);
     clear(info);
+    pickFab.hidden = !cur;
     if (!cur) { center.textContent = ''; return; }
+    const picked = isPicked(cur);
+    pickFab.textContent = picked ? '♥' : '♡';
+    pickFab.classList.toggle('on', picked);
     center.textContent = `${list.indexOf(cur) + 1} / ${list.length}`;
     info.append(
       el('div', { class: 'fname' }, nameOf(cur)),
@@ -214,6 +220,7 @@ export function renderRate(root) {
     else if (e.key === '+' || e.key === '=') { zoomAt(1.25, cx(), cy()); e.preventDefault(); }
     else if (e.key === '-' || e.key === '_') { zoomAt(1 / 1.25, cx(), cy()); e.preventDefault(); }
     else if (e.key === 'f' || e.key === 'F') { resetZoom(); }
+    else if (e.code === 'KeyP')      { if (state.current) togglePick(state.current); }   // e.code: 한글 자판에서도 동작
   }
   document.addEventListener('keydown', onKey);
 

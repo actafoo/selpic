@@ -42,6 +42,8 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
 
 - **상태/로직**: `src/ratings.js` — 단일 스토어(state) + pub/sub(subscribe/emit).
   점수 병합(myScore/otherScore/groom/bride/total), 필터·정렬(navList), 로컬 영속화(localStorage).
+  **최종 픽**: `state.picks`(Set, `selpic:picks`에 영속, 역할 무관 기기 단위) — 둘이 함께 최종
+  20장을 고르는 단계용. 시트로는 안 감(로컬 전용). 목표 장수는 `config.PICK_TARGET`.
 - **동기화**: `src/sync.js` 는 **백엔드 어댑터** 위에서 pull/push 타이밍만 관리(교체 가능).
   `flush`는 **겹침 방지(flushing 가드) + 100장 청크(PUSH_CHUNK)** 로 보내고, 각 청크 성공 시에만 큐에서 제거.
   `pushChunked(b, role, items, onProgress)` 는 복구 재업로드용(큰 목록을 청크로 순차 전송).
@@ -67,13 +69,14 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
 
 | 파일 | 역할 |
 |---|---|
-| `src/ui-rate.js` | 1장 모드. 키보드(←→ / 1~5 / 0), 확대(휠·핀치·드래그·더블클릭·버튼·+/-/f), 전체화면(⤢), **스와이프로 넘기기(터치)**. 이웃 4장 미리 디코드 + 썸네일 우선 표시 + 150ms 넘으면 스피너 |
-| `src/ui-grid.js` | 썸네일 그리드(320px 축소본). IntersectionObserver 지연 로딩, 점수/합계 뱃지 |
-| `src/ui-compare.js` | 2~4장 나란히 비교 |
+| `src/ui-rate.js` | 1장 모드. 키보드(←→ / 1~5 / 0 / **p=픽**), 확대(휠·핀치·드래그·더블클릭·버튼·+/-/f), 전체화면(⤢), **스와이프로 넘기기(터치)**, 사진 우상단 ♥ 픽 플로팅 버튼. 이웃 4장 미리 디코드 + 썸네일 우선 표시 + 150ms 넘으면 스피너 |
+| `src/ui-grid.js` | 썸네일 그리드(320px 축소본). IntersectionObserver 지연 로딩, 점수/합계 뱃지, ⚖ 비교 담기·♡ 픽 버튼(픽 셀은 핑크 테두리) |
+| `src/ui-compare.js` | 2~4장 나란히 비교. 각 패널 **♡ 픽** 버튼(비슷한 구도끼리 담아 승자 선택) + ✕ 전부 비우기(도구줄은 왼쪽 정렬 — 우상단은 통계 패널이 덮음) |
 | `src/ui-stats.js` | 별점 분포 통계 패널(신랑·신부 1~5점 장수·평균, 📊 토글, 상단바 아래 고정). **모바일은 기본 숨김**(사진을 가림), 패널 탭하면 닫힘 |
-| `src/export.js` | 필터된 목록을 txt(원래 파일명)·csv(filename,groom,bride,total)로 저장 |
+| `src/export.js` | 필터된 목록을 txt(원래 파일명)·csv(filename,groom,bride,total,picked)로 저장. **픽이 있으면 `selpic-final-*.txt`(픽 파일명만)도 함께 저장** |
 
-필터(app.js↔ratings.navList): **내 점수/상대 점수** 각각 정확·이상(ge)·매김·미평가 + **합계≥**·합계순.
+필터(app.js↔ratings.navList): **내 점수/상대 점수** 각각 정확·이상(ge)·매김·미평가 + **합계≥**·합계순·**♥픽만**.
+상단바 **♥ n/20 카운터**(#pickState): 20 도달=초록·초과=빨강, 누르면 픽만 보기 토글.
 사진 추가(＋ 버튼): 기존 선택에 덧붙이기(데스크톱 폴더 / 아이폰 다중파일).
 
 **복구(접속 화면)**: 역할 선택 시 `selpic:mine:<role>`(지워지지 않는 로컬 원본) 장수를 표시하고,

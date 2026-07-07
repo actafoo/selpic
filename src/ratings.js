@@ -16,8 +16,9 @@ export const state = {
   pending: new Map(),    // key -> score           (아직 시트로 못 보낸 점수)
   current: null,         // 1장 모드에서 보고 있는 키
   view: 'rate',
-  filter: { minTotal: 0, mine: 'all', other: 'all', sortByTotal: false },  // mine/other: 'all'|'1'~'5'|'ge2'~'ge4'|'rated'|'unrated'
+  filter: { minTotal: 0, mine: 'all', other: 'all', sortByTotal: false, picked: false },  // mine/other: 'all'|'1'~'5'|'ge2'~'ge4'|'rated'|'unrated'
   compare: new Set(),    // 비교에 담은 키(최대 4)
+  picks: new Set(),      // 최종 선택(픽)한 키 — 부부가 함께 고르는 결과라 역할 구분 없이 기기 단위 저장
 };
 
 const listeners = new Set();
@@ -108,6 +109,26 @@ export function toggleCompare(key) {
   emit();
   return true;
 }
+export function clearCompare() {
+  if (!state.compare.size) return;
+  state.compare.clear();
+  emit();
+}
+
+/* ---------- 최종 픽 ---------- */
+export const isPicked = (key) => state.picks.has(key);
+export function togglePick(key) {
+  if (state.picks.has(key)) state.picks.delete(key);
+  else state.picks.add(key);
+  persistPicks();
+  emit();
+}
+// 픽 목록을 파일 순서(자연 정렬)로 — 폴더에 없는 픽(다른 세션 잔재)도 뒤에 붙여 유실 방지
+export function pickedList() {
+  const inFiles = state.files.filter(k => state.picks.has(k));
+  const rest = [...state.picks].filter(k => !state.files.includes(k)).sort();
+  return inFiles.concat(rest);
+}
 
 /* ---------- 필터/정렬 뷰 (키 목록 반환) ---------- */
 // 점수 필터 판정: 'all'=전체, '1'~'5'=정확히, 'ge4'=4점 이상, 'rated'=매김, 'unrated'=미평가
@@ -120,7 +141,8 @@ function matchScore(score, f) {
 }
 export function navList() {
   let arr = [...state.files];
-  const { minTotal, mine, other, sortByTotal } = state.filter;
+  const { minTotal, mine, other, sortByTotal, picked } = state.filter;
+  if (picked)                   arr = arr.filter(k => state.picks.has(k));                 // 픽만
   if (mine  && mine  !== 'all') arr = arr.filter(k => matchScore(myScore(k), mine));      // 내 점수
   if (other && other !== 'all') arr = arr.filter(k => matchScore(otherScore(k), other));  // 상대 점수
   if (minTotal > 0)             arr = arr.filter(k => total(k) >= minTotal);               // 합계
@@ -154,10 +176,13 @@ export function ratingStats() {
 /* ---------- 로컬 영속화 ---------- */
 function persistMine()    { localStorage.setItem(`selpic:mine:${state.role}`,    JSON.stringify(Object.fromEntries(state.mine))); }
 function persistPending() { localStorage.setItem(`selpic:pending:${state.role}`, JSON.stringify(Object.fromEntries(state.pending))); }
+function persistPicks()   { localStorage.setItem('selpic:picks', JSON.stringify([...state.picks])); }
 export function loadPersisted() {
   const m = JSON.parse(localStorage.getItem(`selpic:mine:${state.role}`)    || '{}');
   const p = JSON.parse(localStorage.getItem(`selpic:pending:${state.role}`) || '{}');
   // 예전 버전의 원본-파일명 키를 정규화 키로 이관(확장자/대소문자 통일 이전 데이터 호환)
   state.mine    = new Map(Object.entries(m).map(([k, v]) => [canon(k), Number(v)]));
   state.pending = new Map(Object.entries(p).map(([k, v]) => [canon(k), Number(v)]));
+  const picks = JSON.parse(localStorage.getItem('selpic:picks') || '[]');
+  state.picks = new Set(picks.map(canon));
 }

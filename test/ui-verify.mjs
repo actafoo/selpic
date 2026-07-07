@@ -179,6 +179,49 @@ try {
   ok(csv.startsWith('filename,groom,bride,total'), 'csv 헤더');
   ok(/,5,4,9/.test(csv), 'csv에 5,4,9 행 존재');
 
+  /* 6a) 최종 픽: 그리드 ♥ → 카운터 → 픽만 필터 → 1장 p키 → 비교 픽 → final 내보내기 */
+  console.log('\n[픽] 최종 선택');
+  await page.selectOption('#minTotal', '0');               // 필터 초기화
+  await page.click('.view-btn[data-view="grid"]');
+  await page.waitForSelector('.grid .cell');
+  eq(await page.locator('.grid .cell[data-name]').count(), 4, '필터 해제로 4장');
+  await page.click(`.grid .cell[data-name="${firstName}"] .pick-add`);
+  eq(await page.textContent('#pickState'), '♥ 1/20', '그리드 ♥ → 카운터 1/20');
+  eq(await page.locator(`.grid .cell[data-name="${firstName}"].picked`).count(), 1, '픽된 셀 강조 테두리');
+  await page.check('#pickOnly');
+  eq(await page.locator('.grid .cell[data-name]').count(), 1, "'픽만' 필터로 픽된 1장만 표시");
+  await page.uncheck('#pickOnly');
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.click(`.grid .cell[data-name="${firstName}"]`);          // 셀 클릭 → 1장 모드
+  await page.waitForSelector('.pick-fab');
+  eq(await page.locator('.pick-fab.on').count(), 1, '1장 모드 ♥ 플로팅 버튼이 픽 상태 표시');
+  await page.keyboard.press('p');                                     // p키 → 픽 해제
+  eq(await page.textContent('#pickState'), '♥ 0/20', 'p키로 픽 해제(0/20)');
+  await page.keyboard.press('p');                                     // 다시 픽
+  eq(await page.textContent('#pickState'), '♥ 1/20', 'p키로 다시 픽(1/20)');
+  // 비교에 2장 담아 나란히 보고, 마음에 드는 쪽을 그 자리에서 픽
+  await page.click('.view-btn[data-view="grid"]');
+  await page.waitForSelector('.grid .cell');
+  await page.click('.grid .cell[data-name="photo_2.jpg"] .cmp-add');
+  await page.click('.grid .cell[data-name="photo_3.jpg"] .cmp-add');
+  await page.click('.view-btn[data-view="compare"]');
+  eq(await page.locator('.cmp-panel').count(), 2, '비교 패널 2개');
+  await page.click('.cmp-panel:first-child .pick-btn');
+  eq(await page.textContent('#pickState'), '♥ 2/20', '비교 화면에서 픽 → 카운터 2/20');
+  eq(await page.locator('.cmp-panel.picked').count(), 1, '픽된 패널 강조');
+  await page.screenshot({ path: path.join(ROOT, 'test', 'screenshot-pick.png') });
+  await page.click('.cmp-tools button');                              // ✕ 전부 비우기
+  eq(await page.locator('.empty').count(), 1, '전부 비우기 → 빈 안내로 복귀');
+  eq(await page.textContent('#cmpCount'), '', '비교 담은 개수 리셋');
+  // 내보내기: 픽이 있으면 final txt가 추가로 내려온다
+  const dlsPick = [];
+  page.on('download', d => dlsPick.push(d));
+  await page.click('#exportBtn');
+  await sleep(800);
+  eq(dlsPick.length, 3, '픽 있으면 txt+csv+final 3개 다운로드');
+  const finalTxt = fs.readFileSync(await dlsPick[2].path(), 'utf8');
+  eq(finalTxt.split('\n').sort(), ['photo_1.jpg', 'photo_2.jpg'], 'final txt = 픽된 파일명만');
+
   /* 통계 패널 */
   console.log('\n[통계] 별점 분포 패널');
   ok(await page.locator('#statsPanel').isVisible(), '통계 패널 표시');

@@ -1,7 +1,8 @@
 // 최종 내보내기: 현재 필터/정렬이 적용된 목록을 파일명 리스트로 저장.
-// - selpic-selected.txt : 한 줄에 파일명 하나
-// - selpic-selected.csv : filename, groom, bride, total
-import { navList, groomScore, brideScore, total, nameOf } from './ratings.js';
+// - selpic-<날짜>.txt       : 한 줄에 파일명 하나 (현재 필터 기준)
+// - selpic-<날짜>.csv       : filename, groom, bride, total, picked
+// - selpic-final-<날짜>.txt : ♥픽한 사진만 (픽이 하나라도 있으면 필터와 무관하게 함께 저장)
+import { navList, pickedList, isPicked, groomScore, brideScore, total, nameOf, state } from './ratings.js';
 
 export function exportSelection() {
   const list = navList();
@@ -11,10 +12,12 @@ export function exportSelection() {
 
   download(`selpic-${stamp}.txt`, list.map(nameOf).join('\n'), 'text/plain');   // 원래 파일명으로 내보내기
 
-  const rows = [['filename', 'groom', 'bride', 'total']];
-  for (const n of list) rows.push([nameOf(n), groomScore(n), brideScore(n), total(n)]);
+  const rows = [['filename', 'groom', 'bride', 'total', 'picked']];
+  for (const n of list) rows.push([nameOf(n), groomScore(n), brideScore(n), total(n), isPicked(n) ? 1 : '']);
   const csv = rows.map(r => r.map(cell).join(',')).join('\n');
   download(`selpic-${stamp}.csv`, '﻿' + csv, 'text/csv');   // BOM: 엑셀 한글 대응
+
+  if (state.picks.size) download(`selpic-final-${stamp}.txt`, pickedList().map(nameOf).join('\n'), 'text/plain');
 }
 
 function cell(v) {

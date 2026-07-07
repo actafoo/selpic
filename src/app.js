@@ -9,7 +9,7 @@ import { renderCompare } from './ui-compare.js';
 import { exportSelection } from './export.js';
 import { renderStats } from './ui-stats.js';
 import { el, clear } from './ui-common.js';
-import { DEFAULT_SHEET_URL } from './config.js';
+import { DEFAULT_SHEET_URL, PICK_TARGET } from './config.js';
 
 const $ = (s) => document.querySelector(s);
 let selectedRole = null;
@@ -135,6 +135,13 @@ function enterApp() {
   $('#mineSel').onchange     = (e) => { state.filter.mine = e.target.value; emit(); rerender(); };
   $('#otherSel').onchange    = (e) => { state.filter.other = e.target.value; emit(); rerender(); };
   $('#sortToggle').onchange = (e) => { state.filter.sortByTotal = e.target.checked; emit(); rerender(); };
+  $('#pickOnly').onchange   = (e) => { state.filter.picked = e.target.checked; emit(); rerender(); };
+  $('#pickState').onclick   = () => {                       // 카운터를 눌러도 '픽만 보기' 토글
+    const on = !state.filter.picked;
+    state.filter.picked = on;
+    $('#pickOnly').checked = on;
+    emit(); rerender();
+  };
   $('#otherLabel').textContent = state.role === 'groom' ? '신부' : '신랑';   // 상대 역할 라벨
   $('#exportBtn').onclick   = exportSelection;
   $('#syncBtn').onclick     = async () => { status('동기화 중…'); await flush(); await pollNow(); status('동기화 완료'); };
@@ -199,6 +206,13 @@ function updateTopbar() {
   const c = counts();
   $('#progress').textContent = `${c.rated} / ${c.total} 매김`;
   $('#cmpCount').textContent = state.compare.size ? ` (${state.compare.size})` : '';
+  // 최종 픽 카운터: 목표 도달(=20)이면 초록, 넘치면 경고색
+  const n = state.picks.size;
+  const pk = $('#pickState');
+  pk.textContent = `♥ ${n}/${PICK_TARGET}`;
+  pk.classList.toggle('done', n === PICK_TARGET);
+  pk.classList.toggle('over', n > PICK_TARGET);
+  pk.classList.toggle('active', !!state.filter.picked);
   // 저장 상태 표시: 시트로 못 보낸 점수가 있으면 경고색으로 개수를 보여준다(유실 사고 후 가시화)
   const p = state.pending.size;
   const ps = $('#pendState');

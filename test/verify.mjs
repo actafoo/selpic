@@ -132,9 +132,10 @@ console.log('\n[6] 최종 내보내기(txt/csv)');
 state.filter = { minTotal: 9, mine: 'all', other: 'all', sortByTotal: true };
 downloads.length = 0;
 exportSelection();
+eq(downloads.length, 2, '픽 없으면 txt/csv 2개만');
 eq(downloads[0], 'img_1.jpg\nimg_2.jpg', 'txt = 파일명 리스트');
 const csv = downloads[1].replace(/^﻿/, '');
-eq(csv, 'filename,groom,bride,total\nimg_1.jpg,5,4,9\nimg_2.jpg,4,5,9', 'csv = filename,groom,bride,total');
+eq(csv, 'filename,groom,bride,total,picked\nimg_1.jpg,5,4,9,\nimg_2.jpg,4,5,9,', 'csv = filename,groom,bride,total,picked');
 
 /* ===== 7) 정규화 키: 확장자/대소문자/NFD·NFC ===== */
 console.log('\n[7] 파일명 정규화 키');
@@ -175,6 +176,37 @@ eq(state.pending.has('unrated_0.jpg'), false, '0점(미평가)은 재전송 안 
 await sync.flush();
 eq(sheet.get('lost_1.jpg'), { groom: 5, bride: 0 }, 'flush로 시트에 자동 복구');
 eq([...state.pending].length, 0, '복구 후 pending 비움');
+
+/* ===== 11) 최종 픽: 토글·필터·영속·내보내기 ===== */
+console.log('\n[11] 최종 픽');
+state.files = ['a.jpg', 'b.jpg', 'c.jpg'];
+state.names = new Map([['a.jpg', 'A.JPG']]);            // 표시명은 원래 파일명 유지 확인용
+state.mine = new Map(); state.pending = new Map(); state.remote = new Map();
+state.picks = new Set();
+R.togglePick('a.jpg');
+R.togglePick('c.jpg');
+eq(R.isPicked('a.jpg'), true, 'togglePick → 픽됨');
+eq(state.picks.size, 2, '픽 2장 카운트');
+state.filter = { minTotal: 0, mine: 'all', other: 'all', sortByTotal: false, picked: true };
+eq(R.navList(), ['a.jpg', 'c.jpg'], "'픽만' 필터");
+R.togglePick('c.jpg');
+eq(R.navList(), ['a.jpg'], '픽 해제가 필터에 반영');
+R.togglePick('c.jpg');
+eq(R.pickedList(), ['a.jpg', 'c.jpg'], 'pickedList = 파일 순서');
+state.picks = new Set();
+R.loadPersisted();                                       // localStorage에서 복원
+eq([...state.picks].sort(), ['a.jpg', 'c.jpg'], '픽이 localStorage에 영속');
+state.filter = { minTotal: 0, mine: 'all', other: 'all', sortByTotal: false, picked: false };
+downloads.length = 0;
+exportSelection();
+eq(downloads.length, 3, '픽 있으면 final txt 추가(3개 다운로드)');
+eq(downloads[2], 'A.JPG\nc.jpg', 'final txt = 픽된 원래 파일명만');
+{
+  const c = downloads[1].replace(/^﻿/, '').split('\n');
+  eq(c[0], 'filename,groom,bride,total,picked', 'csv picked 열');
+  eq(c[1], 'A.JPG,0,0,0,1', '픽된 행 picked=1');
+  eq(c[2], 'b.jpg,0,0,0,', '안 픽된 행은 빈칸');
+}
 
 /* ---------- 결과 ---------- */
 console.log(`\n결과: ${pass} passed, ${fail} failed`);
