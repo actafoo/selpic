@@ -34,12 +34,18 @@ const mock = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
   if (req.method === 'GET') {
-    res.end(JSON.stringify([...sheet].map(([filename, v]) => ({ filename, groom: v.groom || 0, bride: v.bride || 0 }))));
+    res.end(JSON.stringify([...sheet].map(([filename, v]) => ({ filename, groom: v.groom || 0, bride: v.bride || 0, picked: !!v.picked }))));
     return;
   }
   let body = ''; req.on('data', c => body += c);
   req.on('end', () => {
-    const { role, items } = JSON.parse(body);
+    const parsed = JSON.parse(body);
+    if (parsed.picks) {                         // 픽 동기화(Code.gs picks 경로)
+      for (const it of parsed.picks) { const c = sheet.get(it.filename) || { groom: 0, bride: 0 }; c.picked = !!it.picked; sheet.set(it.filename, c); }
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    const { role, items } = parsed;
     for (const it of items) { const c = sheet.get(it.filename) || { groom: 0, bride: 0 }; c[role] = Number(it.score) || 0; sheet.set(it.filename, c); }
     res.end(JSON.stringify({ ok: true }));
   });

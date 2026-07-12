@@ -134,7 +134,7 @@ function enterApp() {
   $('#minTotal').onchange   = (e) => { state.filter.minTotal = +e.target.value; emit(); rerender(); };
   $('#mineSel').onchange     = (e) => { state.filter.mine = e.target.value; emit(); rerender(); };
   $('#otherSel').onchange    = (e) => { state.filter.other = e.target.value; emit(); rerender(); };
-  $('#sortToggle').onchange = (e) => { state.filter.sortByTotal = e.target.checked; emit(); rerender(); };
+  $('#sortSel').onchange     = (e) => { state.filter.sortByTotal = e.target.value === 'total'; emit(); rerender(); };
   $('#pickOnly').onchange   = (e) => { state.filter.picked = e.target.checked; emit(); rerender(); };
   $('#pickState').onclick   = () => {                       // 카운터를 눌러도 '픽만 보기' 토글
     const on = !state.filter.picked;
