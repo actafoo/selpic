@@ -5,7 +5,7 @@
 //   pull(): Promise<Array<{filename, groom, bride}>>
 //   push(role, items): Promise<void>
 //   subscribe?(onRows: (rows) => void): () => void   // 있으면 실시간, 없으면 폴링
-import { state, applyRemote, getPending, markFlushed } from './ratings.js';
+import { state, applyRemote, getPending, markFlushed, getPendingPicks, markPicksFlushed } from './ratings.js';
 
 let backend = null;
 let pollTimer = null, flushTimer = null, unsub = null, onWake = null, onOnline = null;
@@ -64,7 +64,8 @@ export async function pollNow() {
 export async function flush() {
   if (!backend || flushing) return;         // 이전 flush가 아직 진행 중이면 건너뜀(겹침 방지)
   const items = getPending();
-  if (!items.length) return;
+  const picks = typeof backend.pushPicks === 'function' ? getPendingPicks() : [];
+  if (!items.length && !picks.length) return;
   flushing = true;
   try {
     // 청크 단위로 보내고, 각 청크가 성공했을 때만 그만큼 큐에서 제거(중간 실패해도 나머지는 다음 주기 재시도)
@@ -72,6 +73,12 @@ export async function flush() {
       const chunk = items.slice(i, i + PUSH_CHUNK);
       await backend.push(state.role, chunk);
       markFlushed(chunk);
+    }
+    // 최종 픽 토글도 함께 전송(시트 공유 → 상대 기기가 pull로 같은 픽을 본다)
+    for (let i = 0; i < picks.length; i += PUSH_CHUNK) {
+      const chunk = picks.slice(i, i + PUSH_CHUNK);
+      await backend.pushPicks(chunk);
+      markPicksFlushed(chunk);
     }
   } catch (e) { console.warn('push 실패(다음 주기에 재시도)', e); }
   finally { flushing = false; }

@@ -42,13 +42,17 @@ UI/iOS 테스트 최초 1회: `npm i && npx playwright install chromium`.
 
 - **상태/로직**: `src/ratings.js` — 단일 스토어(state) + pub/sub(subscribe/emit).
   점수 병합(myScore/otherScore/groom/bride/total), 필터·정렬(navList), 로컬 영속화(localStorage).
-  **최종 픽**: `state.picks`(Set, `selpic:picks`에 영속, 역할 무관 기기 단위) — 둘이 함께 최종
-  20장을 고르는 단계용. 시트로는 안 감(로컬 전용). 목표 장수는 `config.PICK_TARGET`.
+  **최종 픽**: `state.picks`(Set, `selpic:picks`에 영속) — 둘이 함께 최종 20장을 고르는 단계용.
+  **시트로 공유됨**(역할 무관 공유 플래그, 시트 `picked` 열): 토글하면 `state.pendingPicks`
+  (Map, `selpic:pendingPicks`에 영속)에 쌓여 다음 flush로 상대 기기에 전파되고, `applyRemote`가
+  폴링 때 시트 `picked`를 병합해 `state.picks`를 재구성한다(못 보낸 로컬 토글은 그 위에 얹어 유실 방지).
+  점수와 달리 픽은 켜기/끄기 양방향이라 **마지막 쓰기 우선**(couple이 함께 고르는 저빈도 액션).
+  목표 장수는 `config.PICK_TARGET`.
 - **동기화**: `src/sync.js` 는 **백엔드 어댑터** 위에서 pull/push 타이밍만 관리(교체 가능).
   `flush`는 **겹침 방지(flushing 가드) + 100장 청크(PUSH_CHUNK)** 로 보내고, 각 청크 성공 시에만 큐에서 제거.
   `pushChunked(b, role, items, onProgress)` 는 복구 재업로드용(큰 목록을 청크로 순차 전송).
   visibilitychange/online/pagehide 때 즉시 flush(iOS 백그라운드 타이머 정지 대응).
-  어댑터 인터페이스: `pull()`, `push(role, items)`, 선택적 `subscribe(onRows)`.
+  어댑터 인터페이스: `pull()`, `push(role, items)`, 선택적 `pushPicks(items)`·`subscribe(onRows)`.
   현재 어댑터: `src/backends/sheets-backend.js`(구글 시트, subscribe 없음 → 폴링).
 - **자기치유(유실 자동 복구)**: `ratings.applyRemote`가 폴링 때마다 "내 로컬 확정 점수(mine>0)인데
   시트에 없음(0)"인 항목을 pending에 자동 재등록 → 다음 flush로 복구. 값이 다른 경우(같은 역할

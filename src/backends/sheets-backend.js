@@ -29,5 +29,18 @@ export function createSheetsBackend({ url }) {
       try { data = await res.json(); } catch { throw new Error('서버 응답을 읽지 못했어요'); }
       if (!data || data.ok !== true) throw new Error('서버 저장 실패: ' + ((data && data.error) || '알 수 없음'));
     },
+    // 최종 픽 토글 전송(역할 무관 공유 플래그). items = [{filename, picked:boolean}].
+    // push와 마찬가지로 멱등(같은 파일명+상태 재전송은 동일 결과)이라 실패 시 재전송 안전.
+    async pushPicks(items) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ picks: items }),
+      });
+      if (!res.ok) throw new Error('서버 응답 ' + res.status);
+      let data;
+      try { data = await res.json(); } catch { throw new Error('서버 응답을 읽지 못했어요'); }
+      if (!data || data.ok !== true) throw new Error('픽 저장 실패: ' + ((data && data.error) || '알 수 없음'));
+    },
   };
 }

@@ -24,11 +24,11 @@ globalThis.document = {
 };
 
 /* ---------- Code.gs 의미를 흉내낸 mock 시트 서버 ---------- */
-const sheet = new Map();          // filename -> {groom, bride}
+const sheet = new Map();          // filename -> {groom, bride, picked}
 let lastPost = null;
 const server = http.createServer((req, res) => {
   if (req.method === 'GET') {
-    const rows = [...sheet].map(([filename, v]) => ({ filename, groom: v.groom || 0, bride: v.bride || 0 }));
+    const rows = [...sheet].map(([filename, v]) => ({ filename, groom: v.groom || 0, bride: v.bride || 0, picked: !!v.picked }));
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(rows));
     return;
@@ -36,8 +36,19 @@ const server = http.createServer((req, res) => {
   let body = '';
   req.on('data', c => (body += c));
   req.on('end', () => {
-    const { role, items } = JSON.parse(body);
-    lastPost = { role, items };
+    const parsed = JSON.parse(body);
+    lastPost = parsed;
+    if (parsed.picks) {                             // 픽 동기화(Code.gs picks 경로와 동일)
+      for (const it of parsed.picks) {
+        const cur = sheet.get(it.filename) || { groom: 0, bride: 0 };
+        cur.picked = !!it.picked;                   // 역할 무관 공유 플래그
+        sheet.set(it.filename, cur);
+      }
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ ok: true, count: parsed.picks.length }));
+      return;
+    }
+    const { role, items } = parsed;
     for (const it of items) {                       // upsert (Code.gs와 동일)
       const cur = sheet.get(it.filename) || { groom: 0, bride: 0 };
       cur[role] = Number(it.score) || 0;
@@ -207,6 +218,48 @@ eq(downloads[2], 'A.JPG\nc.jpg', 'final txt = 픽된 원래 파일명만');
   eq(c[1], 'A.JPG,0,0,0,1', '픽된 행 picked=1');
   eq(c[2], 'b.jpg,0,0,0,', '안 픽된 행은 빈칸');
 }
+
+/* ===== 12) 최종 픽 동기화(두 기기 공유) ===== */
+console.log('\n[12] 최종 픽 동기화');
+state.mine = new Map(); state.pending = new Map();
+state.role = 'groom';
+state.picks = new Set(); state.pendingPicks = new Map(); state.remotePicks = new Set();
+R.togglePick('psync1.jpg');
+eq(R.getPendingPicks().length, 1, '픽 토글이 전송 큐에 쌓임');
+await sync.flush();
+eq(sheet.get('psync1.jpg')?.picked, true, 'flush로 픽이 시트에 기록');
+eq(R.getPendingPicks().length, 0, '전송 완료 후 큐 비움');
+
+// 신부 기기: pull만 해도 신랑이 고른 픽이 그대로 보인다(공유)
+state.role = 'bride';
+state.mine = new Map(); state.pending = new Map();
+state.picks = new Set(); state.pendingPicks = new Map(); state.remotePicks = new Set();
+await sync.pollNow();
+eq(R.isPicked('psync1.jpg'), true, '상대 기기에서 픽이 그대로 보임');
+
+// 신부가 픽 추가 → 신랑이 pull하면 두 픽이 합쳐진다
+R.togglePick('psync2.jpg');
+await sync.flush();
+state.role = 'groom';
+state.picks = new Set(); state.pendingPicks = new Map(); state.remotePicks = new Set();
+await sync.pollNow();
+eq(R.isPicked('psync1.jpg') && R.isPicked('psync2.jpg'), true, '양쪽 픽이 합쳐져 보임');
+
+// 픽 해제도 전파: 신랑이 해제 → 신부 기기의 픽이 사라진다
+R.togglePick('psync1.jpg');   // 해제
+await sync.flush();
+eq(sheet.get('psync1.jpg')?.picked, false, '해제가 시트에 반영(빈칸)');
+state.role = 'bride';
+state.picks = new Set(['psync1.jpg', 'psync2.jpg']); state.pendingPicks = new Map();
+await sync.pollNow();
+eq(R.isPicked('psync1.jpg'), false, '픽 해제가 상대 기기에 전파');
+eq(R.isPicked('psync2.jpg'), true, '해제 안 한 픽은 유지');
+
+// 아직 못 보낸 로컬 토글은 pull이 덮어쓰지 않는다(전송 대기 중 유실 방지)
+state.pendingPicks = new Map([['psync3.jpg', true]]);
+state.picks = new Set(['psync3.jpg']);
+await sync.pollNow();          // 시트엔 psync3 픽이 아직 없음
+eq(R.isPicked('psync3.jpg'), true, '전송 대기 중 픽은 pull이 안 지움');
 
 /* ---------- 결과 ---------- */
 console.log(`\n결과: ${pass} passed, ${fail} failed`);

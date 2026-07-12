@@ -20,12 +20,13 @@ function sheet_() {
   var sh = ss.getSheetByName(SHEET_NAME);
   if (!sh) {
     sh = ss.insertSheet(SHEET_NAME);
-    sh.appendRow(['filename', 'groom', 'bride', 'total', 'updatedAt']);
+    sh.appendRow(['filename', 'groom', 'bride', 'total', 'updatedAt', 'picked']);
   }
   return sh;
 }
 
-// 전체 점수를 JSON 배열로 반환: [{filename, groom, bride}, ...]
+// 전체 점수+픽을 JSON 배열로 반환: [{filename, groom, bride, picked}, ...]
+// picked는 역할 무관 공유 플래그(6번째 열, 1=픽). 두 기기가 같은 픽 목록을 본다.
 function doGet() {
   var sh = sheet_();
   var data = sh.getDataRange().getValues();
@@ -33,12 +34,19 @@ function doGet() {
   for (var i = 1; i < data.length; i++) {
     var filename = data[i][0];
     if (!filename) continue;
-    out.push({ filename: String(filename), groom: Number(data[i][1]) || 0, bride: Number(data[i][2]) || 0 });
+    out.push({
+      filename: String(filename),
+      groom: Number(data[i][1]) || 0,
+      bride: Number(data[i][2]) || 0,
+      picked: data[i][5] ? true : false
+    });
   }
   return json_(out);
 }
 
-// 배치 점수 기록: body = {role:'groom'|'bride', items:[{filename, score}, ...]}
+// 배치 기록. 두 형태:
+//   점수: body = {role:'groom'|'bride', items:[{filename, score}, ...]}
+//   최종 픽: body = {picks:[{filename, picked:boolean}, ...]}   ← 역할 무관 공유 플래그(6번째 열)
 //
 // ⚠️ 반드시 '일괄 읽기 1번 + 일괄 쓰기 1번'을 유지할 것.
 // 예전 버전은 항목마다 setValue/setFormula를 호출(100장 청크 = 셀 API 300번, 수십 초)해서
@@ -51,19 +59,39 @@ function doPost(e) {
     return json_({ ok: false, error: '락 대기 시간 초과(잠시 후 자동 재시도됩니다)' });
   }
   try {
-    var body  = JSON.parse(e.postData.contents);
-    var role  = body.role === 'bride' ? 'bride' : 'groom';
-    var ci    = role === 'groom' ? 1 : 2;   // 행 배열 인덱스: 1=groom, 2=bride
-    var items = body.items || [];
-
+    var body = JSON.parse(e.postData.contents);
     var sh   = sheet_();
     var data = sh.getDataRange().getValues();
     var rowOf = {};                          // 정규화 키 -> data 인덱스 (기기 간 확장자·대소문자 차이 흡수)
     for (var i = 1; i < data.length; i++) {
       if (data[i][0]) rowOf[canonKey_(String(data[i][0]))] = i;
     }
-
     var now = new Date().toISOString();
+
+    // ── 최종 픽 동기화: 6번째 열(picked)만 갱신, 점수 칸은 절대 안 건드림. 1=픽, 빈칸=해제. ──
+    if (body.picks) {
+      var picks = body.picks;
+      for (var p = 0; p < picks.length; p++) {
+        var pk = canonKey_(String(picks[p].filename || ''));
+        if (!pk) continue;
+        var pcell = picks[p].picked ? 1 : '';
+        var pidx = rowOf[pk];
+        if (pidx == null) {                  // 점수 없이 픽만 된 사진 → 새 행(점수 칸 빈칸)
+          rowOf[pk] = data.length;
+          data.push([pk, '', '', 0, now, pcell]);
+        } else {
+          data[pidx][5] = pcell;
+          data[pidx][4] = now;
+        }
+      }
+      writeData_(sh, data);
+      return json_({ ok: true, count: picks.length });
+    }
+
+    // ── 점수 기록 ──
+    var role  = body.role === 'bride' ? 'bride' : 'groom';
+    var ci    = role === 'groom' ? 1 : 2;   // 행 배열 인덱스: 1=groom, 2=bride
+    var items = body.items || [];
     for (var k = 0; k < items.length; k++) {
       var name  = canonKey_(String(items[k].filename || ''));
       if (!name) continue;
@@ -72,25 +100,45 @@ function doPost(e) {
       //    (2026-07-05 회귀: 신랑이 만든 행의 신부 칸이 전부 0으로 표기됐던 원인).
       var cell  = score > 0 ? score : '';
       var idx = rowOf[name];
-      if (idx == null) {                     // 새 파일 → 메모리에서 행 추가(상대 칸은 빈칸 유지)
-        var r = [name, '', '', score, now];
+      if (idx == null) {                     // 새 파일 → 메모리에서 행 추가(상대 칸·픽 칸은 빈칸 유지)
+        var r = [name, '', '', score, now, ''];
         r[ci] = cell;
         rowOf[name] = data.length;
         data.push(r);
       } else {
         var row = data[idx];
-        row[ci] = cell;                      // 다른 역할의 칸은 절대 건드리지 않는다
+        row[ci] = cell;                      // 다른 역할의 칸·픽 칸은 절대 건드리지 않는다
         row[3] = (Number(row[1]) || 0) + (Number(row[2]) || 0);
         row[4] = now;
       }
     }
-    if (data.length > 1) sh.getRange(2, 1, data.length - 1, 5).setValues(data.slice(1));
+    writeData_(sh, data);
     return json_({ ok: true, count: items.length });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   } finally {
     lock.releaseLock();
   }
+}
+
+// data(헤더 포함, 메모리 배열)를 6열로 정규화해 한 번에 기록. 픽 열(6번째)을 보존한다.
+// 기존 5열 시트도 이 함수로 6열로 자동 승격된다(빈 픽 칸=미픽).
+function writeData_(sh, data) {
+  var rows = [['filename', 'groom', 'bride', 'total', 'updatedAt', 'picked']];
+  for (var i = 1; i < data.length; i++) {
+    var d = data[i];
+    if (!d[0]) continue;
+    rows.push([
+      d[0],
+      d[1] == null ? '' : d[1],
+      d[2] == null ? '' : d[2],
+      d[3] == null ? '' : d[3],
+      d[4] == null ? '' : d[4],
+      d[5] == null ? '' : d[5]
+    ]);
+  }
+  sh.clearContents();
+  sh.getRange(1, 1, rows.length, 6).setValues(rows);
 }
 
 function json_(obj) {
@@ -121,18 +169,19 @@ function dedupe() {
       var filename = data[i][0];
       if (!filename) continue;
       var k = canonKey_(String(filename));
-      if (!merged[k]) { merged[k] = { groom: 0, bride: 0 }; order.push(k); }
+      if (!merged[k]) { merged[k] = { groom: 0, bride: 0, picked: false }; order.push(k); }
       merged[k].groom = Math.max(merged[k].groom, Number(data[i][1]) || 0);
       merged[k].bride = Math.max(merged[k].bride, Number(data[i][2]) || 0);   // 같은 사진의 점수는 큰 값 채택
+      if (data[i][5]) merged[k].picked = true;                                // 갈라진 행 중 하나라도 픽이면 픽 유지
     }
-    var out = [['filename', 'groom', 'bride', 'total', 'updatedAt']];
+    var out = [['filename', 'groom', 'bride', 'total', 'updatedAt', 'picked']];
     var now = new Date().toISOString();
     for (var j = 0; j < order.length; j++) {
       var g = merged[order[j]].groom, b = merged[order[j]].bride;
-      out.push([order[j], g > 0 ? g : '', b > 0 ? b : '', g + b, now]);   // 미평가는 빈칸
+      out.push([order[j], g > 0 ? g : '', b > 0 ? b : '', g + b, now, merged[order[j]].picked ? 1 : '']);   // 미평가는 빈칸
     }
     sh.clearContents();
-    sh.getRange(1, 1, out.length, 5).setValues(out);
+    sh.getRange(1, 1, out.length, 6).setValues(out);
     return '정리 완료: ' + (data.length - 1) + '행 → ' + (out.length - 1) + '행';
   } finally {
     lock.releaseLock();

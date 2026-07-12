@@ -18,7 +18,9 @@ export const state = {
   view: 'rate',
   filter: { minTotal: 0, mine: 'all', other: 'all', sortByTotal: false, picked: false },  // mine/other: 'all'|'1'~'5'|'ge2'~'ge4'|'rated'|'unrated'
   compare: new Set(),    // 비교에 담은 키(최대 4)
-  picks: new Set(),      // 최종 선택(픽)한 키 — 부부가 함께 고르는 결과라 역할 구분 없이 기기 단위 저장
+  picks: new Set(),      // 최종 선택(픽)한 키 — 부부가 함께 고르는 결과(표시용 병합 집합)
+  remotePicks: new Set(),// 시트(공유 원본)의 픽 스냅샷
+  pendingPicks: new Map(),// key -> boolean  아직 시트로 못 보낸 픽 토글(true=픽, false=해제)
 };
 
 const listeners = new Set();
@@ -82,7 +84,25 @@ export function applyRemote(rows) {
     }
   }
   if (pendingChanged) persistPending();
-  if (remoteChanged || pendingChanged) emit();   // 변화 없으면 emit 생략(1000장+ 그리드 불필요 repaint 방지)
+
+  // ── 최종 픽 병합: 시트가 공유 원본. 아직 못 보낸 로컬 토글(pendingPicks)만 그 위에 얹는다. ──
+  // 이래야 신랑이 픽한 20장을 신부 기기가 pull로 그대로 보고, 각자 해제도 서로에게 전파된다.
+  const rp = new Set();
+  for (const r of rows) { if (r && r.filename && r.picked) rp.add(canon(r.filename)); }
+  state.remotePicks = rp;
+  let picksPendingChanged = false;
+  // 서버가 내 대기 토글을 반영했으면(픽 여부가 내 의도와 일치) 큐에서 제거
+  for (const [key, want] of [...state.pendingPicks]) {
+    if (rp.has(key) === want) { state.pendingPicks.delete(key); picksPendingChanged = true; }
+  }
+  // 표시 픽 = 서버 픽 ∪/∖ 대기 중 토글
+  const nextPicks = new Set(rp);
+  for (const [key, want] of state.pendingPicks) { if (want) nextPicks.add(key); else nextPicks.delete(key); }
+  let picksChanged = false;
+  if (!sameSet(nextPicks, state.picks)) { state.picks = nextPicks; persistPicks(); picksChanged = true; }
+  if (picksPendingChanged) persistPendingPicks();
+
+  if (remoteChanged || pendingChanged || picksChanged) emit();   // 변화 없으면 emit 생략(1000장+ 그리드 불필요 repaint 방지)
 }
 function sameRemote(a, b) {
   if (a.size !== b.size) return false;
@@ -90,6 +110,11 @@ function sameRemote(a, b) {
     const w = b.get(k);
     if (!w || w.groom !== v.groom || w.bride !== v.bride) return false;
   }
+  return true;
+}
+function sameSet(a, b) {
+  if (a.size !== b.size) return false;
+  for (const k of a) if (!b.has(k)) return false;
   return true;
 }
 // 시트로는 정규화 키를 보낸다(양쪽 기기가 같은 키로 씀)
@@ -115,13 +140,24 @@ export function clearCompare() {
   emit();
 }
 
-/* ---------- 최종 픽 ---------- */
+/* ---------- 최종 픽 (시트로 공유 — 두 기기가 같은 픽 목록을 본다) ---------- */
 export const isPicked = (key) => state.picks.has(key);
 export function togglePick(key) {
-  if (state.picks.has(key)) state.picks.delete(key);
-  else state.picks.add(key);
+  const want = !state.picks.has(key);
+  if (want) state.picks.add(key); else state.picks.delete(key);
+  state.pendingPicks.set(key, want);   // 시트로 보낼 픽 토글 큐(다음 flush로 상대 기기에 전파)
   persistPicks();
+  persistPendingPicks();
   emit();
+}
+// 시트로 보낼 픽 토글(정규화 키 + 픽 여부)
+export function getPendingPicks() { return [...state.pendingPicks].map(([filename, picked]) => ({ filename, picked })); }
+export function markPicksFlushed(items) {
+  let changed = false;
+  for (const it of items) {
+    if (state.pendingPicks.get(it.filename) === it.picked) { state.pendingPicks.delete(it.filename); changed = true; }
+  }
+  if (changed) persistPendingPicks();
 }
 // 픽 목록을 파일 순서(자연 정렬)로 — 폴더에 없는 픽(다른 세션 잔재)도 뒤에 붙여 유실 방지
 export function pickedList() {
@@ -176,7 +212,8 @@ export function ratingStats() {
 /* ---------- 로컬 영속화 ---------- */
 function persistMine()    { localStorage.setItem(`selpic:mine:${state.role}`,    JSON.stringify(Object.fromEntries(state.mine))); }
 function persistPending() { localStorage.setItem(`selpic:pending:${state.role}`, JSON.stringify(Object.fromEntries(state.pending))); }
-function persistPicks()   { localStorage.setItem('selpic:picks', JSON.stringify([...state.picks])); }
+function persistPicks()        { localStorage.setItem('selpic:picks', JSON.stringify([...state.picks])); }
+function persistPendingPicks() { localStorage.setItem('selpic:pendingPicks', JSON.stringify(Object.fromEntries(state.pendingPicks))); }
 export function loadPersisted() {
   const m = JSON.parse(localStorage.getItem(`selpic:mine:${state.role}`)    || '{}');
   const p = JSON.parse(localStorage.getItem(`selpic:pending:${state.role}`) || '{}');
@@ -185,4 +222,14 @@ export function loadPersisted() {
   state.pending = new Map(Object.entries(p).map(([k, v]) => [canon(k), Number(v)]));
   const picks = JSON.parse(localStorage.getItem('selpic:picks') || '[]');
   state.picks = new Set(picks.map(canon));
+  state.remotePicks = new Set();
+  const ppRaw = localStorage.getItem('selpic:pendingPicks');
+  if (ppRaw == null) {
+    // 최초 업그레이드: 이 기기에 있던 로컬 픽은 아직 시트에 없다 → 전부 전송 큐에 올려 상대 기기로 공유.
+    // (안 그러면 첫 pull에서 '시트에 픽 없음'으로 보고 로컬 픽을 지워버림)
+    state.pendingPicks = new Map([...state.picks].map(k => [k, true]));
+    persistPendingPicks();
+  } else {
+    state.pendingPicks = new Map(Object.entries(JSON.parse(ppRaw)).map(([k, v]) => [canon(k), !!v]));
+  }
 }
